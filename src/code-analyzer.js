@@ -1,14 +1,14 @@
 /**
- * CODE ANALYZER — Per-line static analysis using Acorn AST
+ * CODE ANALYZER — Deep semantic analysis using Acorn AST
  *
- * Parses JavaScript and computes error metrics for each line:
- *   - Nesting depth (structural complexity)
- *   - Cognitive weight (AST node density)
- *   - Line length
- *   - Pattern smells (==, eval, magic numbers, nested ternaries, etc.)
+ * Two layers of analysis:
+ *   LAYER 1 — Structural: nesting, complexity, line length
+ *   LAYER 2 — Semantic: dead code, randomness in logic, missing patterns,
+ *             unused computations, audio anti-patterns, control flow issues
  *
- * Output: per-line error score E(line) and derived sound parameters
- * using the same 4-layer framework as the Resonant Solver.
+ * The analyzer doesn't just check syntax — it checks whether the code
+ * is doing what it SHOULD be doing. A line of syntactically valid code
+ * can still be deeply wrong.
  */
 
 import * as acorn from 'acorn';
@@ -31,16 +31,10 @@ const HEAVY_NODES = {
 };
 
 export class CodeAnalyzer {
-  /**
-   * Analyze JavaScript source code.
-   * @param {string} source - JavaScript source code
-   * @returns {{ lines: LineAnalysis[], parseError: string|null }}
-   */
   analyze(source) {
     const rawLines = source.split('\n');
     const lineCount = rawLines.length;
 
-    // Initialize per-line data
     const lines = rawLines.map((text, i) => ({
       line: i + 1,
       text,
@@ -66,15 +60,15 @@ export class CodeAnalyzer {
         allowImportExportEverywhere: true,
       });
 
-      // Walk AST with ancestor tracking
+      // Layer 1: Structural analysis
       walk.ancestor(ast, this._buildVisitors(lines));
 
-      // Detect smells from AST
+      // Layer 2: Semantic analysis — the deep stuff
       this._detectSmells(ast, lines, source);
+      this._detectSemanticIssues(ast, lines, source);
 
     } catch (err) {
       parseError = err.message;
-      // Mark the error line with high error
       const match = err.message.match(/\((\d+):\d+\)/);
       if (match) {
         const errLine = parseInt(match[1]) - 1;
@@ -85,30 +79,48 @@ export class CodeAnalyzer {
       }
     }
 
-    // Compute error scores and sound params
+    // Compute error scores with higher weight on semantic smells
     for (let i = 0; i < lines.length; i++) {
       const m = lines[i].metrics;
       const isBlank = lines[i].text.trim() === '';
-      const isComment = /^\s*(\/\/|\/\*|\*)/.test(lines[i].text);
+      const isComment = /^\s*(\/\/|\/\*|\*|<!--)/.test(lines[i].text);
 
-      if (isBlank || isComment) {
-        lines[i].error = 0.05; // Tiny baseline so there's still a faint tone
+      if (isBlank) {
+        lines[i].error = 0.02;
+      } else if (isComment) {
+        // Comments with ❌ or WRONG markers get penalized
+        const hasWarning = /❌|WRONG|HACK|FIXME|BUG|XXX/i.test(lines[i].text);
+        lines[i].error = hasWarning ? 2.0 : 0.05;
+        if (hasWarning) m.smells.push('flagged-comment');
       } else {
-        const depthScore = Math.min(1, m.nestingDepth / 6);
+        const depthScore = Math.min(1, m.nestingDepth / 5);
         const lengthScore = Math.min(1, Math.max(0, (m.lineLength - 80) / 80));
-        const weightScore = Math.min(1, m.cognitiveWeight / 12);
-        const smellScore = Math.min(1, m.smells.length * 0.3);
+        const weightScore = Math.min(1, m.cognitiveWeight / 10);
+
+        // Semantic smells are weighted much heavier
+        const semanticSmells = m.smells.filter(s =>
+          ['random-in-logic', 'random-frequency', 'random-amplitude',
+           'no-ramp-click', 'dead-computation', 'no-gradient',
+           'reassign-random', 'global-mutation', 'no-error-handling',
+           'hardcoded-audio', 'missing-cleanup', 'no-convergence',
+           'eval', 'syntax-error', 'flagged-comment'].includes(s)
+        );
+        const syntaxSmells = m.smells.filter(s => !semanticSmells.includes(s));
+
+        const semanticScore = Math.min(1, semanticSmells.length * 0.4);
+        const syntaxScore = Math.min(1, syntaxSmells.length * 0.2);
 
         lines[i].error = (
-          0.3 * depthScore +
-          0.2 * lengthScore +
-          0.3 * weightScore +
-          0.2 * smellScore
-        ) * 10; // Scale to 0-10 range
+          0.15 * depthScore +
+          0.10 * lengthScore +
+          0.15 * weightScore +
+          0.35 * semanticScore +
+          0.25 * syntaxScore
+        ) * 10;
       }
     }
 
-    // Compute gradient (rate of change between adjacent lines)
+    // Gradient (rate of change between adjacent lines)
     for (let i = 0; i < lines.length; i++) {
       const prev = i > 0 ? lines[i - 1].error : lines[i].error;
       lines[i].gradient = Math.abs(lines[i].error - prev);
@@ -120,13 +132,9 @@ export class CodeAnalyzer {
       const grad = lines[i].gradient;
 
       lines[i].soundParams = {
-        // Frequency: position in file → pitch (low at top, high at bottom)
         frequency: 150 + (i / Math.max(1, lineCount - 1)) * 600,
-        // Amplitude: exp(-E) — clean = loud, messy = quiet
         amplitude: Math.exp(-E),
-        // Vibrato: gradient between lines — sudden quality change = wobble
         vibrato: Math.min(50, grad * 15),
-        // Noise: error level — messy = noisy
         noise: Math.min(1, E / 5),
       };
     }
@@ -153,13 +161,11 @@ export class CodeAnalyzer {
         const lineIdx = node.loc.start.line - 1;
         if (lineIdx < 0 || lineIdx >= lines.length) return;
 
-        // Nesting depth from ancestors
         const depth = ancestors.filter(a => BLOCK_TYPES.has(a.type)).length;
         lines[lineIdx].metrics.nestingDepth = Math.max(
           lines[lineIdx].metrics.nestingDepth, depth
         );
 
-        // Cognitive weight
         const weight = HEAVY_NODES[type] || 0;
         lines[lineIdx].metrics.cognitiveWeight += weight;
       };
@@ -168,9 +174,10 @@ export class CodeAnalyzer {
     return visitors;
   }
 
+  // ==================== LAYER 2: SEMANTIC ANALYSIS ====================
+
   _detectSmells(ast, lines, source) {
     walk.simple(ast, {
-      // == instead of ===
       BinaryExpression(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -180,7 +187,6 @@ export class CodeAnalyzer {
         }
       },
 
-      // eval() calls
       CallExpression(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -190,7 +196,6 @@ export class CodeAnalyzer {
         }
       },
 
-      // Nested ternaries
       ConditionalExpression(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -203,7 +208,6 @@ export class CodeAnalyzer {
         }
       },
 
-      // Empty catch blocks
       CatchClause(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -213,7 +217,6 @@ export class CodeAnalyzer {
         }
       },
 
-      // var declarations (prefer let/const)
       VariableDeclaration(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -223,7 +226,6 @@ export class CodeAnalyzer {
         }
       },
 
-      // Magic numbers (not 0, 1, -1, 2)
       Literal(node) {
         if (!node.loc) return;
         const idx = node.loc.start.line - 1;
@@ -232,13 +234,340 @@ export class CodeAnalyzer {
           typeof node.value === 'number' &&
           !Number.isNaN(node.value) &&
           ![0, 1, -1, 2, 100, 10].includes(node.value) &&
-          node.value !== Math.floor(node.value) === false &&
           Math.abs(node.value) > 2
         ) {
           lines[idx].metrics.smells.push('magic-number');
         }
       },
     });
+  }
+
+  /**
+   * Deep semantic analysis — detects patterns that are syntactically valid
+   * but logically wrong, dangerous, or indicate bad practices.
+   */
+  _detectSemanticIssues(ast, lines, source) {
+    const rawLines = source.split('\n');
+
+    // Track variable declarations and usages for dead-code detection
+    const declared = new Map(); // name → { line, used: false }
+    const assigned = new Map(); // name → [lines where assigned]
+
+    walk.simple(ast, {
+      // ===== Math.random() in assignment contexts (non-deterministic logic) =====
+      AssignmentExpression(node) {
+        if (!node.loc) return;
+        const idx = node.loc.start.line - 1;
+        if (idx < 0 || idx >= lines.length) return;
+
+        if (_containsRandomCall(node.right)) {
+          // Check what's being assigned to
+          const target = _getAssignmentTarget(node.left);
+
+          if (/freq/i.test(target)) {
+            lines[idx].metrics.smells.push('random-frequency');
+          } else if (/gain|amp|volume/i.test(target)) {
+            lines[idx].metrics.smells.push('random-amplitude');
+          } else {
+            lines[idx].metrics.smells.push('random-in-logic');
+          }
+        }
+      },
+
+      // ===== Variable declarations with random init =====
+      VariableDeclarator(node) {
+        if (!node.loc || !node.init) return;
+        const idx = node.loc.start.line - 1;
+        if (idx < 0 || idx >= lines.length) return;
+
+        const name = node.id.type === 'Identifier' ? node.id.name : '';
+        declared.set(name, { line: idx, used: false });
+
+        if (_containsRandomCall(node.init)) {
+          if (/freq/i.test(name)) {
+            lines[idx].metrics.smells.push('random-frequency');
+          } else if (/gain|amp|volume/i.test(name)) {
+            lines[idx].metrics.smells.push('random-amplitude');
+          } else {
+            lines[idx].metrics.smells.push('reassign-random');
+          }
+        }
+      },
+
+      // ===== Identifier usage tracking =====
+      Identifier(node) {
+        if (declared.has(node.name)) {
+          declared.get(node.name).used = true;
+        }
+      },
+
+      // ===== Audio anti-patterns =====
+      CallExpression(node) {
+        if (!node.loc) return;
+        const idx = node.loc.start.line - 1;
+        if (idx < 0 || idx >= lines.length) return;
+
+        const callee = _getCallName(node);
+
+        // setValueAtTime without linearRamp — causes audio clicks
+        if (callee === 'setValueAtTime') {
+          // Check if there's a linearRampToValueAtTime nearby (within 3 lines)
+          const nearbyLines = rawLines.slice(Math.max(0, idx - 1), idx + 4).join('\n');
+          if (!/linearRamp|exponentialRamp/.test(nearbyLines)) {
+            lines[idx].metrics.smells.push('no-ramp-click');
+          }
+
+          // Check if the value is Math.random()
+          if (node.arguments.length > 0 && _containsRandomCall(node.arguments[0])) {
+            lines[idx].metrics.smells.push('random-amplitude');
+          }
+        }
+
+        // frequency.setValueAtTime with random value
+        if (callee === 'setValueAtTime' && rawLines[idx] && /frequency/.test(rawLines[idx])) {
+          if (node.arguments.length > 0 && _containsRandomCall(node.arguments[0])) {
+            lines[idx].metrics.smells.push('random-frequency');
+          }
+        }
+
+        // createOscillator/createGain without .connect — orphaned node
+        if (/^create(Oscillator|Gain|BiquadFilter|Analyser)$/.test(callee)) {
+          const funcLines = rawLines.slice(idx, Math.min(idx + 20, rawLines.length)).join('\n');
+          if (!/\.connect\(/.test(funcLines)) {
+            lines[idx].metrics.smells.push('missing-cleanup');
+          }
+        }
+
+        // setInterval/setTimeout with no clearInterval — potential leak
+        if (callee === 'setInterval') {
+          const allCode = rawLines.join('\n');
+          if (!/clearInterval/.test(allCode)) {
+            lines[idx].metrics.smells.push('no-cleanup-interval');
+          }
+        }
+      },
+
+      // ===== Function analysis: params vs usage =====
+      FunctionDeclaration(node) {
+        _analyzeFunctionBody(node, lines, rawLines);
+      },
+      FunctionExpression(node) {
+        _analyzeFunctionBody(node, lines, rawLines);
+      },
+      ArrowFunctionExpression(node) {
+        _analyzeFunctionBody(node, lines, rawLines);
+      },
+    });
+
+    // ===== Global state mutation detection =====
+    this._detectGlobalMutation(ast, lines, rawLines);
+
+    // ===== Pattern detection: missing optimization logic =====
+    this._detectMissingPatterns(lines, rawLines, source);
+  }
+
+  /**
+   * Detect global variable reassignment inside functions
+   */
+  _detectGlobalMutation(ast, lines, rawLines) {
+    const globalVars = new Set();
+
+    // Collect top-level var/let declarations
+    for (const node of ast.body) {
+      if (node.type === 'VariableDeclaration') {
+        for (const decl of node.declarations) {
+          if (decl.id.type === 'Identifier') {
+            globalVars.add(decl.id.name);
+          }
+        }
+      }
+    }
+
+    // Find assignments to globals inside functions
+    walk.ancestor(ast, {
+      AssignmentExpression(node, ancestors) {
+        if (!node.loc) return;
+        const idx = node.loc.start.line - 1;
+        if (idx < 0 || idx >= lines.length) return;
+
+        const inFunction = ancestors.some(a =>
+          ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(a.type)
+        );
+
+        if (inFunction && node.left.type === 'Identifier' && globalVars.has(node.left.name)) {
+          // Reassigning x = Math.random() inside a loop is especially bad
+          if (_containsRandomCall(node.right)) {
+            lines[idx].metrics.smells.push('global-mutation');
+            lines[idx].metrics.smells.push('reassign-random');
+          } else {
+            lines[idx].metrics.smells.push('global-mutation');
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Detect missing patterns:
+   *   - No gradient computation in optimization code
+   *   - Computed error value that is never used for anything
+   *   - No convergence check
+   *   - Random where deterministic is needed
+   */
+  _detectMissingPatterns(lines, rawLines, source) {
+    const allCode = source.toLowerCase();
+
+    // If code has "error" computation but no gradient/derivative
+    const hasError = /\berror\b|\bE\s*\(/.test(source);
+    const hasGradient = /gradient|derivative|∇|nabla|partial|dE|grad\b/.test(source);
+    const hasOptimization = /optimi|descent|converge|minimize|learning.?rate|lr\b|\bstep\b/.test(allCode);
+
+    if (hasError && hasOptimization && !hasGradient) {
+      // Find the function that does the "optimization" and flag it
+      for (let i = 0; i < rawLines.length; i++) {
+        if (/function\s+loop|function\s+step|function\s+update|function\s+optimi/i.test(rawLines[i])) {
+          lines[i].metrics.smells.push('no-gradient');
+        }
+      }
+    }
+
+    // If code computes error but never uses it to update anything meaningful
+    if (hasError) {
+      let errorUsedInAudio = false;
+      let errorUsedInUpdate = false;
+      for (const line of rawLines) {
+        if (/error.*frequency|error.*gain|error.*amp|error.*noise|exp\s*\(\s*-\s*error/i.test(line)) {
+          errorUsedInAudio = true;
+        }
+        if (/error.*<|error.*>|error.*threshold|if.*error/i.test(line)) {
+          errorUsedInUpdate = true;
+        }
+      }
+      if (!errorUsedInAudio && !errorUsedInUpdate) {
+        // Find where error is computed and flag as dead
+        for (let i = 0; i < rawLines.length; i++) {
+          if (/let\s+error|var\s+error|const\s+error|error\s*=/.test(rawLines[i]) &&
+              !/function|param|catch/.test(rawLines[i])) {
+            lines[i].metrics.smells.push('dead-computation');
+          }
+        }
+      }
+    }
+
+    // If code uses Math.random() to set variables that should be deterministic
+    // (inside a loop/interval that repeats)
+    for (let i = 0; i < rawLines.length; i++) {
+      const line = rawLines[i];
+
+      // x = Math.random() inside what looks like an update loop
+      if (/=\s*Math\.random\(\)/.test(line)) {
+        // Check if we're inside a function called by setInterval
+        const inLoop = rawLines.slice(Math.max(0, i - 20), i).some(l =>
+          /setInterval|requestAnimationFrame|loop|update|step|tick/.test(l)
+        );
+        if (inLoop && !lines[i].metrics.smells.includes('reassign-random')) {
+          lines[i].metrics.smells.push('reassign-random');
+        }
+      }
+    }
+
+    // No convergence detection in optimization code
+    if (hasOptimization) {
+      const hasConvergence = /converge|threshold|epsilon|tolerance|< 0\.0|break|clearInterval/.test(source);
+      if (!hasConvergence) {
+        for (let i = 0; i < rawLines.length; i++) {
+          if (/setInterval\s*\(/.test(rawLines[i])) {
+            lines[i].metrics.smells.push('no-convergence');
+          }
+        }
+      }
+    }
+
+    // HTML script tags (inline scripts lose module benefits)
+    for (let i = 0; i < rawLines.length; i++) {
+      if (/<script(?!\s+type="module")/.test(rawLines[i]) && !/src=/.test(rawLines[i])) {
+        lines[i].metrics.smells.push('inline-script');
+      }
+      if (/<\/?html>|<\/?head>|<\/?body>|<\/?title>|<meta\s/.test(rawLines[i])) {
+        // HTML mixed with JS analysis — these are structural, low weight
+        lines[i].metrics.smells.push('html-in-js');
+      }
+    }
+
+    // onclick inline handlers
+    for (let i = 0; i < rawLines.length; i++) {
+      if (/onclick\s*=/.test(rawLines[i])) {
+        lines[i].metrics.smells.push('inline-handler');
+      }
+    }
+  }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
+function _containsRandomCall(node) {
+  if (!node) return false;
+  if (node.type === 'CallExpression') {
+    const callee = node.callee;
+    if (callee.type === 'MemberExpression' &&
+        callee.object.type === 'Identifier' && callee.object.name === 'Math' &&
+        callee.property.type === 'Identifier' && callee.property.name === 'random') {
+      return true;
+    }
+  }
+  // Check children
+  if (node.type === 'BinaryExpression') {
+    return _containsRandomCall(node.left) || _containsRandomCall(node.right);
+  }
+  if (node.type === 'CallExpression') {
+    return node.arguments.some(a => _containsRandomCall(a));
+  }
+  if (node.type === 'UnaryExpression') {
+    return _containsRandomCall(node.argument);
+  }
+  if (node.type === 'MemberExpression') {
+    return _containsRandomCall(node.object);
+  }
+  return false;
+}
+
+function _getAssignmentTarget(node) {
+  if (node.type === 'Identifier') return node.name;
+  if (node.type === 'MemberExpression') {
+    const prop = node.property.type === 'Identifier' ? node.property.name : '';
+    const obj = _getAssignmentTarget(node.object);
+    return `${obj}.${prop}`;
+  }
+  return '';
+}
+
+function _getCallName(node) {
+  const callee = node.callee;
+  if (callee.type === 'Identifier') return callee.name;
+  if (callee.type === 'MemberExpression' && callee.property.type === 'Identifier') {
+    return callee.property.name;
+  }
+  return '';
+}
+
+function _analyzeFunctionBody(node, lines, rawLines) {
+  if (!node.loc || !node.body) return;
+  const startLine = node.loc.start.line - 1;
+  const endLine = node.loc.end.line - 1;
+
+  // Check function length
+  const bodyLength = endLine - startLine;
+  if (bodyLength > 30) {
+    if (startLine >= 0 && startLine < lines.length) {
+      lines[startLine].metrics.smells.push('long-function');
+    }
+  }
+
+  // Check parameter count
+  if (node.params && node.params.length > 4) {
+    if (startLine >= 0 && startLine < lines.length) {
+      lines[startLine].metrics.smells.push('too-many-params');
+    }
   }
 }
 
@@ -395,5 +724,46 @@ class ApiClient {
 }
 
 export { clamp, lerp, debounce, ApiClient };`,
+  },
+
+  wrong_solver: {
+    name: 'Wrong Solver',
+    code: `let audioCtx, oscillator, gainNode;
+let x = Math.random() * 10;
+
+function E(x) {
+  return (x - 5) ** 2;
+}
+
+function start() {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  oscillator = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.start();
+
+  setInterval(loop, 200);
+}
+
+function loop() {
+  let error = E(x);
+
+  // WRONG: random update (no optimization)
+  x = Math.random() * 10;
+
+  // WRONG: random pitch mapping
+  let freq = Math.random() * 1000;
+  oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  // WRONG: amplitude unrelated to error
+  gainNode.gain.setValueAtTime(Math.random(), audioCtx.currentTime);
+
+  // WRONG: ignores gradient completely
+  // WRONG: no continuity, jumps everywhere
+}`,
   },
 };
