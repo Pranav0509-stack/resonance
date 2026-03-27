@@ -1,0 +1,17 @@
+{
+  "name": "resonance",
+  "version": "0.1.0",
+  "description": "Every structure has a resonance frequency. Errors are dissonance. Truth is harmony. Mathematically proven.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5557",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "acorn": "^8.11.3",
+    "acorn-walk": "^8.3.2"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

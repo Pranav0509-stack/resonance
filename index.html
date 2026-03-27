@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resonant Solver — Hear Computation Converge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- CONCEPT -->
+    <header class="concept">
+      <h1 class="title">Resonant Solver</h1>
+      <p class="principle">Correctness = perceptual stability</p>
+      <p class="sub">
+        Every problem is a minimization. Every variable is an oscillator.<br>
+        Error → noise. Gradient → instability. Convergence → pure tone.
+      </p>
+    </header>
+
+    <!-- PROBLEM SELECTOR -->
+    <section class="problem-section">
+      <div class="problem-tabs" id="problem-tabs"></div>
+      <div class="problem-info">
+        <div class="problem-name" id="problem-name"></div>
+        <div class="problem-eq" id="problem-eq"></div>
+        <div class="problem-detail" id="problem-detail"></div>
+      </div>
+    </section>
+
+    <!-- VISUALIZATION -->
+    <section class="viz-section">
+      <!-- Waveform -->
+      <canvas id="waveform" class="waveform-canvas"></canvas>
+
+      <!-- State display -->
+      <div class="state-grid" id="state-grid">
+        <div class="state-card">
+          <div class="state-label">ERROR</div>
+          <div class="state-value" id="state-error">—</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">|∇E|</div>
+          <div class="state-value" id="state-grad">—</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">STEP</div>
+          <div class="state-value" id="state-step">0</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">STATUS</div>
+          <div class="state-value" id="state-status">READY</div>
+        </div>
+      </div>
+
+      <!-- Variable monitors -->
+      <div class="var-grid" id="var-grid"></div>
+
+      <!-- Error history chart -->
+      <canvas id="error-chart" class="error-chart"></canvas>
+    </section>
+
+    <!-- CONTROLS -->
+    <section class="controls-section">
+      <div class="transport">
+        <button id="btn-start" class="btn btn-primary">▶ START</button>
+        <button id="btn-pause" class="btn">⏸ PAUSE</button>
+        <button id="btn-reset" class="btn">↻ RESET</button>
+      </div>
+      <div class="sliders">
+        <label class="slider-row">
+          <span class="sl-label">Learning Rate</span>
+          <input type="range" id="lr-slider" min="0.001" max="0.1" step="0.001" value="0.01">
+          <span class="sl-val" id="lr-val">0.010</span>
+        </label>
+        <label class="slider-row">
+          <span class="sl-label">Speed (steps/sec)</span>
+          <input type="range" id="speed-slider" min="5" max="120" step="1" value="30">
+          <span class="sl-val" id="speed-val">30</span>
+        </label>
+        <label class="slider-row">
+          <span class="sl-label">Volume</span>
+          <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.5">
+        </label>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-section">
+      <h2>How it works</h2>
+      <div class="layers">
+        <div class="layer">
+          <div class="layer-num">0</div>
+          <div class="layer-body">
+            <h3>Problem → Error Function</h3>
+            <p>Any problem becomes: minimize E(x). The error measures how wrong you are.</p>
+            <code>E(x) = (x − 5)²</code>
+          </div>
+        </div>
+        <div class="layer">
+          <div class="layer-num">1</div>
+          <div class="layer-body">
+            <h3>Variable → Frequency</h3>
+            <p>Each variable becomes an oscillator. Its value determines its pitch.</p>
+            <code>f(x) = 200 + 20x</code>
+          </div>
+        </div>
+        <div class="layer">
+          <div class="layer-num">2</div>
+          <div class="layer-body">
+            <h3>Error → Amplitude + Noise</h3>
+            <p>High error = quiet + noisy. Low error = loud + clean. The math guarantees it.</p>
+            <code>A = exp(−E(x))&nbsp;&nbsp;&nbsp;noise ∝ E(x)</code>
+          </div>
+        </div>
+        <div class="layer">
+          <div class="layer-num">3</div>
+          <div class="layer-body">
+            <h3>Gradient → Vibrato</h3>
+            <p>Large gradient = frequency shakes. At the minimum, gradient = 0, tone is rock-steady.</p>
+            <code>vibrato ∝ |∇E(x)|</code>
+          </div>
+        </div>
+        <div class="layer">
+          <div class="layer-num">4</div>
+          <div class="layer-body">
+            <h3>Multi-variable → Interference</h3>
+            <p>Multiple variables = multiple oscillators. Constraint violation = beating between tones.</p>
+            <code>s(t) = Σ sin(fᵢ t)</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RULES -->
+    <section class="rules-section">
+      <h2>Rules (non-negotiable)</h2>
+      <div class="rules-grid">
+        <div class="rule">No random pitch mapping</div>
+        <div class="rule">No aesthetic tuning</div>
+        <div class="rule">Must encode gradient</div>
+        <div class="rule">Must respond to small changes</div>
+        <div class="rule">Convergence must be audible</div>
+        <div class="rule">Humans detect it eyes-closed</div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>Resonant Solver</span>
+      <span>·</span>
+      <span>Correctness = Perceptual Stability</span>
+      <span>·</span>
+      <span>Open Source</span>
+    </footer>
+
+  </div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
