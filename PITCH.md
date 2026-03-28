@@ -194,20 +194,29 @@ Machine learning has made sound generation cheap and fast. Web Audio API is matu
 
 ### The Market Size
 
-- **Developer tools market**: ~$26B (2024), ~10% CAGR
-- **Code quality / static analysis**: ~$1.5B (SonarQube, Snyk, Veracode)
-- **AI developer tooling**: $2–4B and growing fastest
-- **Resonance TAM**: intersection of code quality ($1.5B) × AI era amplification = **$3–5B**
+- **Application security testing (AST) market**: $6.4B (2023) → **$18.5B (2030)** at 15.7% CAGR (MarketsandMarkets)
+- **Code quality tooling specifically**: $1.5–2.5B SAM (2024)
+- **AI developer tooling**: fastest-growing segment — Cursor alone at $100M ARR, Copilot Enterprise at $39/user/month across 100M+ developers
+- **Engineering analytics** (adjacent): LinearB $50M Series B, Jellyfish $71M Series C — VCs actively deploying
+- **Resonance TAM**: code quality ($2.5B) × AI code coherence multiplier × audio-ML (Augury proof) = **$5–8B realistic TAM**
+- **SOM (3-year)**: 0.2% of 30M professional developers at $20/month = **$14.4M ARR** individual tier alone
 
 ### Comparable Outcomes
 
-| Company | Category | Funding | Outcome |
-|---------|----------|---------|---------|
-| Snyk | Code security | $530M total | $8.5B valuation |
-| Sourcegraph | Code intelligence | $225M | $2.6B valuation |
-| Codeium | AI code generation | $65M | $500M valuation |
-| Tabnine | AI code completion | $25M | Enterprise focus |
-| **Resonance** | Ambient code quality | **Seeking $3M seed** | Target: $50M Series A in 18 months |
+| Company | Category | Funding | Valuation |
+|---------|----------|---------|-----------|
+| SonarSource | Code quality | $412M (2022) | $4.7B — bootstrapped 13 years before VC |
+| Snyk | Code security | $1.23B total (9 rounds) | $8.5B peak (Series E, Sep 2021) |
+| Checkmarx | SAST | Acquired 2020 | $1.15B exit |
+| Codeium / Windsurf | AI code generation | $93M | $500M (General Catalyst) |
+| Cursor (Anysphere) | AI IDE | $68M | $400M at ~$100M ARR |
+| CodeRabbit | AI code review | $16M | Seed/A stage (CRV, 2024) |
+| LinearB | Engineering analytics | $50M Series B | — |
+| Jellyfish | Engineering analytics | $71M Series C | — |
+| **Augury** | **Audio/ML — industrial** | **$227M (ICONIQ, 2022)** | **Unicorn — nearest audio-ML analog** |
+| **Resonance** | **Ambient code quality** | **Seeking $3M seed** | Target: $50M Series A in 18 months |
+
+**Key data point:** Augury reached unicorn status ($1B+) by applying acoustic ML to factory machine monitoring. No equivalent exists for developer workflows. This is the white space.
 
 ---
 
@@ -273,7 +282,40 @@ Resonance is pursuing both commercial and academic tracks simultaneously. This i
 
 ---
 
-## The Team
+## Target Investors
+
+### Tier 1 — Best Fit (Dev Tools + AI thesis active)
+
+| Fund | Why | Relevant Bets |
+|------|-----|--------------|
+| **General Catalyst** | Led Codeium $65M; thesis: "AI-augmented engineering teams" | Codeium ($93M total), Render |
+| **Lightspeed** | Led Semgrep $40M; "security embedded in development workflow" | Semgrep, Harness ($3.7B) |
+| **a16z** | Led Cursor $60M; "AI-native developer tools" active thesis | Cursor, Replit, Hex |
+| **Felicis Ventures** | Semgrep Series A + B; active in dev security | Semgrep, Notion |
+
+### Tier 2 — Strong Fit (Late seed / Series A for dev tools)
+
+| Fund | Why | Relevant Bets |
+|------|-----|--------------|
+| **CRV** | Led CodeRabbit $16M; currently writing dev tool checks | CodeRabbit |
+| **Redpoint** | Led Semgrep Series A; dev tools operator-friendly | Semgrep |
+| **Accel** | Long history in dev security; global offices | Snyk (early), Atlassian |
+| **Y Combinator** | Strong developer tool batch history | DeepSource, dozens of dev tools |
+
+### Tier 3 — Grant Funding (Non-dilutive, first)
+
+| Source | Program | Amount |
+|--------|---------|--------|
+| NSF | SBIR Phase I | $275,000 |
+| NSF | SBIR Phase II | Up to $1,000,000 |
+| DARPA | AIE (AI Exploration) | $1–5M per awardee |
+| NSF IIS | HCI + auditory display research | $300K–$800K |
+
+**Strategy:** Apply for NSF SBIR Phase I ($275K) simultaneously with seed raise. Non-dilutive capital extends runway and adds academic credibility to investor conversations.
+
+---
+
+## Target Investors
 
 **[Founder]** — *CEO/CTO*
 - Built Resonance v1 in [X weeks]: solver, scanner, style learner, 8-voice audio engine
@@ -313,11 +355,12 @@ Resonance is pursuing both commercial and academic tracks simultaneously. This i
 
 | Risk | Mitigation |
 |------|-----------|
-| Developers don't want ambient sound | Research shows peripheral audio works (pulse oximeter, industrial monitoring); beta test will validate; volume control means zero forcing |
-| Linters already solve this | Linters are modal and post-hoc; Resonance is ambient and real-time. Different UX category. |
-| GitHub/Microsoft copies it | Microsoft has 40K engineers and ships features slowly; first-mover + patent protection + fingerprint data flywheel |
-| Audio doesn't work in VS Code | VS Code uses Electron (Chromium); Web Audio API and AudioWorklet are fully supported |
-| Tree-sitter parsing too slow | Tree-sitter benchmarks: 2–5ms for incremental parse of a function; well within budget |
+| Developers don't want ambient sound | Research (pulse oximeter, Augury's $227M industrial audio-ML) validates the category; free tier + volume control = zero forcing; beta cohort validates before Series A |
+| Linters already solve this | SonarQube, ESLint are modal and post-hoc — require stopping. Different UX category entirely. SonarSource bootstrapped 13 years on that wedge; we occupy the real-time ambient layer they cannot |
+| GitHub/Microsoft copies it | GHAS is $49/committer/month and takes 6–18 months to ship any feature; first-mover + provisional patents + fingerprint data flywheel = 2-year defensible lead |
+| Audio doesn't work in VS Code | VS Code is Electron (Chromium); Web Audio API + AudioWorklet are fully supported. Proven in current build. |
+| Enterprise sales cycle too long | PLG motion: individual developers → team champions → VP Eng sign-off. SonarSource, Snyk, and Semgrep all used this exact path. |
+| "AI-generated code detection" is crowded | No competitor uses style-divergence sonification. Snyk added AI markers; Semgrep has community rules. Neither provides real-time ambient feedback during writing. |
 
 ---
 
