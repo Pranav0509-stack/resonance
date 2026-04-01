@@ -21,6 +21,10 @@ let noiseNodes = [];     // 8 noise sources
 let animFrame = null;
 let analyser = null;
 let isPlaying = false;
+let isScanMode = false;
+let scanLine = 0;
+let scanInterval = null;
+let scanSpeed = 4; // lines per second
 
 // ── DOM refs ───────────────────────────────────────────────────────────────
 const profileSelect    = document.getElementById('profileSelect');
@@ -120,9 +124,12 @@ function bindEvents() {
   mergeBtn.addEventListener('click', mergeFromInput);
   compareBtn.addEventListener('click', doCompare);
   playBtn.addEventListener('click', startAudio);
-  stopBtn.addEventListener('click', stopAudio);
+  stopBtn.addEventListener('click', () => { stopAudio(); stopScan(); });
 
   autoFixBtn.addEventListener('click', showSuggestions);
+
+  // Scan mode
+  document.getElementById('scanModeBtn')?.addEventListener('click', toggleScanMode);
 }
 
 // ── Train ──────────────────────────────────────────────────────────────────
@@ -281,8 +288,15 @@ function doCompare() {
       renderScore(lastComparison);
       renderCodeView(lastComparison.perLineDeviations, src);
       renderCorrectionPanel(lastComparison);
+
+      // LLM detection on the compared code
+      const llmResult = engine.detectLLM(lastComparison.newFingerprint);
+      if (llmResult.isLikelyLLM) {
+        flash(trainStatus, `LLM-generated code detected (${Math.round(llmResult.confidence*100)}% confidence)`, 'error');
+      }
       playBtn.disabled = false;
       stopBtn.disabled = false;
+      document.getElementById('scanModeBtn').disabled = false;
       autoFixBtn.classList.remove('hidden');
     } catch (e) {
       console.error(e);
@@ -670,6 +684,176 @@ function startVoiceBarLoop() {
     });
   }
   tick();
+}
+
+// ── Scan Mode ─────────────────────────────────────────────────────────────
+function toggleScanMode() {
+  if (!lastComparison) return;
+  if (isScanMode) {
+    stopScan();
+    return;
+  }
+  startScanMode();
+}
+
+function startScanMode() {
+  if (!lastComparison || !lastComparison.perLineDeviations) return;
+
+  stopAudio();
+  initAudio();
+  isScanMode = true;
+  scanLine = 0;
+
+  const scanBtn = document.getElementById('scanModeBtn');
+  if (scanBtn) {
+    scanBtn.textContent = 'STOP SCAN';
+    scanBtn.style.borderColor = '#ef4444';
+    scanBtn.style.color = '#ef4444';
+  }
+
+  // Build 8 persistent voices for scan mode
+  const t = audioCtx.currentTime + 0.05;
+  voices = BASE_FREQS.map((freq, i) => {
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.connect(analyser);
+
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+
+    // LFO for vibrato
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.frequency.value = 5 + i * 0.3;
+    lfoGain.gain.setValueAtTime(0, t);
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+    lfo.start(t);
+
+    osc.connect(gain);
+    osc.start(t);
+
+    return { osc, gain, lfo, lfoGain, freq, amp: 0, noise: 0 };
+  });
+
+  // Shared noise source
+  const bufSize = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let k = 0; k < bufSize; k++) data[k] = Math.random() * 2 - 1;
+  const noiseSrc = audioCtx.createBufferSource();
+  noiseSrc.buffer = buf;
+  noiseSrc.loop = true;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0, t);
+  noiseSrc.connect(noiseGain);
+  noiseGain.connect(analyser);
+  noiseSrc.start(t);
+  noiseNodes = [{ source: noiseSrc, gain: noiseGain }];
+
+  isPlaying = true;
+  audioIndicator.classList.add('playing');
+  audioStatus.textContent = 'SCANNING';
+
+  startWaveformLoop();
+  // Voice bars driven directly by scanStep, not by analyser
+
+  // Start scan interval
+  clearInterval(scanInterval);
+  scanInterval = setInterval(scanStep, 1000 / scanSpeed);
+  scanStep();
+}
+
+function scanStep() {
+  if (!isScanMode || !lastComparison) return;
+  const perLine = lastComparison.perLineDeviations;
+  if (!perLine || scanLine >= perLine.length) {
+    stopScan();
+    audioStatus.textContent = 'SCAN DONE';
+    return;
+  }
+
+  const pl = perLine[scanLine];
+  const t = audioCtx.currentTime;
+  const ramp = 0.04;
+
+  // Update 8 voices from this line's sound params
+  const hasDeviation = pl.deviations.length > 0;
+  if (pl.soundParams) {
+    for (let i = 0; i < voices.length && i < pl.soundParams.frequencies.length; i++) {
+      const v = voices[i];
+
+      // Louder gain so oscillations are clearly audible
+      const amp = pl.soundParams.amplitudes[i] * 0.22;
+      v.gain.gain.cancelScheduledValues(t);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+      v.gain.gain.linearRampToValueAtTime(amp, t + ramp);
+
+      const vib = pl.soundParams.vibratos[i];
+      v.lfoGain.gain.cancelScheduledValues(t);
+      v.lfoGain.gain.setValueAtTime(v.lfoGain.gain.value, t);
+      v.lfoGain.gain.linearRampToValueAtTime(Math.min(vib, 30), t + ramp);
+
+      v.noise = pl.soundParams.noises[i];
+      v.amp = pl.soundParams.amplitudes[i];
+    }
+
+    // Update noise level — proportional to max deviation on this line
+    const maxNoise = Math.max(...pl.soundParams.noises);
+    if (noiseNodes.length > 0) {
+      const ng = noiseNodes[0].gain;
+      ng.gain.cancelScheduledValues(t);
+      ng.gain.setValueAtTime(ng.gain.value, t);
+      ng.gain.linearRampToValueAtTime(maxNoise * 0.1, t + ramp);
+    }
+  }
+
+  // Highlight active line in code view
+  const allLines = codeView.querySelectorAll('.code-line');
+  allLines.forEach(el => el.classList.remove('active'));
+  const activeLine = codeView.querySelector(`[data-line="${pl.line}"]`);
+  if (activeLine) {
+    activeLine.classList.add('active');
+    activeLine.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  // Directly drive voice bars from sound params (not analyser)
+  if (pl.soundParams) {
+    for (let i = 0; i < 8; i++) {
+      const bar = document.getElementById(`vbar-${i}`);
+      if (!bar) continue;
+      const noise = pl.soundParams.noises[i] || 0;
+      const amp = pl.soundParams.amplitudes[i] || 0;
+      // Height = amplitude (how loud this voice is)
+      const h = Math.max(3, Math.round(amp * 20));
+      // Color: green when clean, red when noisy
+      const r = Math.round(noise * 240);
+      const g = Math.round((1 - noise) * 180 + 40);
+      bar.style.height = `${h}px`;
+      bar.style.background = `rgb(${r},${g},80)`;
+    }
+  }
+
+  audioStatus.textContent = `LINE ${pl.line}/${perLine.length}${hasDeviation ? ' !' : ''}`;
+  scanLine++;
+}
+
+function stopScan() {
+  clearInterval(scanInterval);
+  scanInterval = null;
+
+  if (isScanMode) {
+    isScanMode = false;
+    stopAudio();
+  }
+
+  const scanBtn = document.getElementById('scanModeBtn');
+  if (scanBtn) {
+    scanBtn.textContent = 'SCAN MODE';
+    scanBtn.style.borderColor = '';
+    scanBtn.style.color = '';
+  }
 }
 
 // ── Utils ──────────────────────────────────────────────────────────────────

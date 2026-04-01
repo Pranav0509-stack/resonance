@@ -485,9 +485,123 @@ export class StyleEngine {
             perLine[idx].deviations.push({ dim: 'errorHandling', reason: 'empty catch block' });
           }
         },
+
+        // ===== SEMANTIC: Math.random() in assignments =====
+        AssignmentExpression(node) {
+          if (!node.loc) return;
+          const idx = node.loc.start.line - 1;
+          if (idx < 0 || idx >= perLine.length) return;
+
+          if (_containsRandom(node.right)) {
+            const target = _targetName(node.left);
+            if (/freq/i.test(target)) {
+              perLine[idx].deviations.push({ dim: 'structure', reason: 'Math.random() drives frequency — non-deterministic audio' });
+            } else if (/gain|amp|volume/i.test(target)) {
+              perLine[idx].deviations.push({ dim: 'structure', reason: 'Math.random() drives amplitude — no error mapping' });
+            } else {
+              perLine[idx].deviations.push({ dim: 'structure', reason: `Math.random() assigned to ${target} — non-deterministic` });
+            }
+          }
+        },
+
+        // ===== SEMANTIC: setValueAtTime without ramp =====
+        CallExpression(node) {
+          if (!node.loc) return;
+          const idx = node.loc.start.line - 1;
+          if (idx < 0 || idx >= perLine.length) return;
+
+          const callee = node.callee;
+          if (callee.type === 'MemberExpression' && callee.property.type === 'Identifier') {
+            const method = callee.property.name;
+
+            if (method === 'setValueAtTime') {
+              // Check for random value
+              if (node.arguments.length > 0 && _containsRandom(node.arguments[0])) {
+                perLine[idx].deviations.push({ dim: 'structure', reason: 'setValueAtTime with Math.random() — no mathematical mapping' });
+              }
+              // Check for missing ramp (causes clicks)
+              const nearbyCode = lines.slice(Math.max(0, idx), Math.min(lines.length, idx + 3)).join('\n');
+              if (!/linearRamp|exponentialRamp|cancelScheduledValues/.test(nearbyCode)) {
+                perLine[idx].deviations.push({ dim: 'errorHandling', reason: 'setValueAtTime without ramp — causes audio clicks' });
+              }
+            }
+
+            // setInterval without clearInterval
+            if (method === 'setInterval' || (callee.type === 'Identifier' && callee.name === 'setInterval')) {
+              const allCode = lines.join('\n');
+              if (!/clearInterval/.test(allCode)) {
+                perLine[idx].deviations.push({ dim: 'errorHandling', reason: 'setInterval without clearInterval — memory leak' });
+              }
+            }
+          }
+
+          // Top-level setInterval check
+          if (callee.type === 'Identifier' && callee.name === 'setInterval') {
+            const allCode = lines.join('\n');
+            if (!/clearInterval/.test(allCode)) {
+              perLine[idx].deviations.push({ dim: 'errorHandling', reason: 'setInterval without clearInterval — memory leak' });
+            }
+          }
+        },
+
+        // ===== SEMANTIC: random variable init =====
+        VariableDeclarator(node) {
+          if (!node.loc || !node.init) return;
+          const idx = node.loc.start.line - 1;
+          if (idx < 0 || idx >= perLine.length) return;
+
+          if (_containsRandom(node.init)) {
+            const name = node.id.type === 'Identifier' ? node.id.name : '?';
+            if (/freq/i.test(name)) {
+              perLine[idx].deviations.push({ dim: 'structure', reason: `"${name}" initialized with Math.random() — random frequency` });
+            } else {
+              perLine[idx].deviations.push({ dim: 'structure', reason: `"${name}" initialized with Math.random()` });
+            }
+          }
+        },
       });
     } catch (e) {
       // Parse error — flag line if possible
+    }
+
+    // ===== SEMANTIC: Text-based deep checks =====
+    const allCode = source;
+    const hasError = /\berror\b|\bE\s*\(/.test(source);
+    const hasGradient = /gradient|derivative|∇|nabla|dE|grad\b/i.test(source);
+    const hasOptimization = /optimi|descent|converge|minimize|learning.?rate/i.test(allCode);
+
+    // Dead computation: error is computed but never drives audio
+    if (hasError) {
+      let errorUsedInAudio = false;
+      for (const line of lines) {
+        if (/error.*freq|error.*gain|error.*amp|error.*noise|exp\s*\(\s*-\s*error/i.test(line)) {
+          errorUsedInAudio = true;
+        }
+      }
+      if (!errorUsedInAudio) {
+        for (let i = 0; i < lines.length; i++) {
+          if (/let\s+error|var\s+error|const\s+error|error\s*=/.test(lines[i]) &&
+              !/function|param|catch/.test(lines[i])) {
+            perLine[i].deviations.push({ dim: 'structure', reason: 'error computed but never used to drive sound parameters' });
+          }
+        }
+      }
+    }
+
+    // No gradient in optimization code
+    if (hasError && !hasGradient) {
+      for (let i = 0; i < lines.length; i++) {
+        if (/function\s+(loop|step|update|optimi)/i.test(lines[i])) {
+          perLine[i].deviations.push({ dim: 'structure', reason: 'optimization loop with no gradient computation' });
+        }
+      }
+    }
+
+    // WRONG/FIXME/HACK comment flags
+    for (let i = 0; i < lines.length; i++) {
+      if (/\/\/.*\b(WRONG|HACK|FIXME|BUG|XXX)\b/i.test(lines[i])) {
+        perLine[i].deviations.push({ dim: 'comments', reason: 'flagged comment: known issue' });
+      }
     }
 
     // Text-based per-line checks
@@ -519,7 +633,7 @@ export class StyleEngine {
       }
     }
 
-    // Compute severity per line
+    // Compute severity per line + per-line sound params for scan mode
     for (const pl of perLine) {
       // Deduplicate by dimension
       const seen = new Set();
@@ -529,6 +643,27 @@ export class StyleEngine {
         return true;
       });
       pl.severity = Math.min(1, pl.deviations.length * 0.25);
+
+      // Per-line sound params: 8 voices, each deviation activates its dimension's dissonance
+      const dimDevs = {};
+      for (const d of pl.deviations) {
+        dimDevs[d.dim] = (dimDevs[d.dim] || 0) + 0.4;
+      }
+      pl.soundParams = {
+        frequencies: BASE_FREQS.slice(),
+        amplitudes: DIMENSION_NAMES.map(d => {
+          const dev = Math.min(1, dimDevs[d] || 0);
+          return dev > 0 ? Math.exp(-dev * 2) * 0.6 : 0.7; // deviating = quieter
+        }),
+        vibratos: DIMENSION_NAMES.map(d => {
+          const dev = Math.min(1, dimDevs[d] || 0);
+          return dev * 35; // deviating = shaky
+        }),
+        noises: DIMENSION_NAMES.map(d => {
+          const dev = Math.min(1, dimDevs[d] || 0);
+          return dev * 0.7; // deviating = noisy
+        }),
+      };
     }
 
     return perLine;
@@ -568,4 +703,71 @@ export class StyleEngine {
     delete all[name];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
   }
+
+  // ==================== LLM DETECTION ====================
+
+  detectLLM(fingerprint) {
+    const d = fingerprint.dimensions;
+    const signals = [];
+    let score = 0;
+
+    if (d.declarations.constRatio > 0.88) {
+      signals.push('Very high const ratio (>88%) — typical of LLM-generated code');
+      score += 0.25;
+    }
+    if (d.comments.density > 0.3) {
+      signals.push('Excessive comment density (>30%) — LLMs over-document');
+      score += 0.2;
+    }
+    if (d.functions.avgLength < 15 && d.functions.avgLength > 0) {
+      signals.push('Short functions (<15 lines avg) — LLMs prefer small functions');
+      score += 0.15;
+    }
+    if (d.errorHandling.tryCatchRatio > 0.1) {
+      signals.push('High try/catch ratio — LLMs over-handle errors');
+      score += 0.15;
+    }
+    if (d.naming.avgIdentifierLength > 14) {
+      signals.push('Long identifier names (>14 avg) — LLMs use verbose naming');
+      score += 0.1;
+    }
+    if (d.comments.jsdocPresent && d.comments.density > 0.2) {
+      signals.push('JSDoc everywhere — LLMs love documentation blocks');
+      score += 0.15;
+    }
+
+    return {
+      isLikelyLLM: score > 0.4,
+      confidence: Math.min(1, score),
+      signals,
+    };
+  }
+}
+
+// ==================== HELPERS ====================
+
+function _containsRandom(node) {
+  if (!node) return false;
+  if (node.type === 'CallExpression') {
+    const c = node.callee;
+    if (c.type === 'MemberExpression' &&
+        c.object.type === 'Identifier' && c.object.name === 'Math' &&
+        c.property.type === 'Identifier' && c.property.name === 'random') {
+      return true;
+    }
+    return node.arguments.some(a => _containsRandom(a));
+  }
+  if (node.type === 'BinaryExpression') return _containsRandom(node.left) || _containsRandom(node.right);
+  if (node.type === 'UnaryExpression') return _containsRandom(node.argument);
+  if (node.type === 'MemberExpression') return _containsRandom(node.object);
+  return false;
+}
+
+function _targetName(node) {
+  if (node.type === 'Identifier') return node.name;
+  if (node.type === 'MemberExpression') {
+    const prop = node.property.type === 'Identifier' ? node.property.name : '';
+    return `${_targetName(node.object)}.${prop}`;
+  }
+  return '?';
 }

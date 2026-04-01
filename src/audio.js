@@ -1,3 +1,5 @@
+import { AUDIO, SONIFICATION } from './config.js';
+
 /**
  * RESONANT SOLVER — Real-Time Audio Engine
  *
@@ -46,17 +48,17 @@ export class ResonantAudio {
 
     // Master output
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.setValueAtTime(0.4, t);
+    this.masterGain.gain.setValueAtTime(AUDIO.MASTER_GAIN, t);
     this.masterGain.connect(this.ctx.destination);
 
     // Analyser for visualization
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 2048;
-    this.analyser.smoothingTimeConstant = 0.4;
+    this.analyser.fftSize = AUDIO.FFT_SIZE;
+    this.analyser.smoothingTimeConstant = AUDIO.SMOOTHING_TIME;
     this.analyser.connect(this.masterGain);
 
     // Noise source (shared white noise buffer)
-    const bufLen = this.ctx.sampleRate * 2;
+    const bufLen = this.ctx.sampleRate * AUDIO.NOISE_BUFFER_SECONDS;
     const noiseBuf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
     const data = noiseBuf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
@@ -85,12 +87,12 @@ export class ResonantAudio {
     // Main oscillator (sine — pure tone)
     const osc = this.ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(200, t);
+    osc.frequency.setValueAtTime(SONIFICATION.FREQ_BASE, t);
 
     // Vibrato LFO — modulates frequency based on gradient
     const lfo = this.ctx.createOscillator();
     lfo.type = 'sine';
-    lfo.frequency.setValueAtTime(5, t);
+    lfo.frequency.setValueAtTime(SONIFICATION.VIBRATO_RATE, t);
     const lfoGain = this.ctx.createGain();
     lfoGain.gain.setValueAtTime(0, t);
     lfo.connect(lfoGain);
@@ -126,25 +128,25 @@ export class ResonantAudio {
   update(params) {
     if (!this._initialized || !this.ctx) return;
     const t = this.ctx.currentTime;
-    const ramp = 0.03; // 30ms ramp to avoid clicks
+    const ramp = AUDIO.PARAM_RAMP_SECONDS;
 
     for (let i = 0; i < this.voices.length && i < params.frequencies.length; i++) {
       const v = this.voices[i];
 
       // Frequency ← variable value
-      const freq = Math.max(20, Math.min(2000, params.frequencies[i]));
+      const freq = Math.max(AUDIO.FREQ_MIN_HZ, Math.min(AUDIO.FREQ_MAX_HZ, params.frequencies[i]));
       v.osc.frequency.cancelScheduledValues(t);
       v.osc.frequency.setValueAtTime(v.osc.frequency.value, t);
       v.osc.frequency.linearRampToValueAtTime(freq, t + ramp);
 
       // Amplitude ← exp(-error)
-      const amp = Math.max(0, Math.min(0.8, params.amplitudes[i]));
+      const amp = Math.max(0, Math.min(AUDIO.AMP_MAX, params.amplitudes[i]));
       v.gain.gain.cancelScheduledValues(t);
       v.gain.gain.setValueAtTime(v.gain.gain.value, t);
       v.gain.gain.linearRampToValueAtTime(amp, t + ramp);
 
       // Vibrato depth ← gradient magnitude
-      const vib = Math.max(0, Math.min(80, params.vibratos[i]));
+      const vib = Math.max(0, Math.min(AUDIO.VIBRATO_MAX_HZ, params.vibratos[i]));
       v.lfoGain.gain.cancelScheduledValues(t);
       v.lfoGain.gain.setValueAtTime(v.lfoGain.gain.value, t);
       v.lfoGain.gain.linearRampToValueAtTime(vib, t + ramp);
@@ -152,7 +154,7 @@ export class ResonantAudio {
 
     // Global noise level ← error
     if (this.noiseGain) {
-      const noise = Math.max(0, Math.min(0.5, params.noises[0] * 0.3));
+      const noise = Math.max(0, Math.min(AUDIO.NOISE_GAIN_MAX, params.noises[0] * AUDIO.NOISE_GAIN_SCALE));
       this.noiseGain.gain.cancelScheduledValues(t);
       this.noiseGain.gain.setValueAtTime(this.noiseGain.gain.value, t);
       this.noiseGain.gain.linearRampToValueAtTime(noise, t + ramp);
@@ -167,7 +169,7 @@ export class ResonantAudio {
       const t = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(t);
       this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, t);
-      this.masterGain.gain.linearRampToValueAtTime(v, t + 0.05);
+      this.masterGain.gain.linearRampToValueAtTime(v, t + AUDIO.VOLUME_RAMP_SECONDS);
     }
   }
 
@@ -177,19 +179,19 @@ export class ResonantAudio {
   celebrate() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const ratios = [1, 5/4, 3/2, 2]; // Major chord — mathematically simplest consonance
-    ratios.forEach((r, i) => {
+    // [1, 5/4, 3/2, 2] = A major chord = overtones 4,5,6,8 of 110Hz. Maximally consonant.
+    SONIFICATION.CELEBRATION_RATIOS.forEach((r) => {
       const o = this.ctx.createOscillator();
       o.type = 'sine';
-      o.frequency.value = 440 * r;
+      o.frequency.value = SONIFICATION.CELEBRATION_BASE_HZ * r;
       const g = this.ctx.createGain();
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.15, t + 0.05);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+      g.gain.linearRampToValueAtTime(SONIFICATION.CELEBRATION_PEAK_GAIN, t + SONIFICATION.CELEBRATION_ATTACK);
+      g.gain.exponentialRampToValueAtTime(0.001, t + SONIFICATION.CELEBRATION_DECAY);
       o.connect(g);
       g.connect(this.analyser);
       o.start(t);
-      o.stop(t + 1.6);
+      o.stop(t + SONIFICATION.CELEBRATION_DURATION);
     });
   }
 

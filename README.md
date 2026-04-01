@@ -1,213 +1,186 @@
-# Resonant Solver
+# Resonance
 
-**Correctness = perceptual stability**
+**Correctness = perceptual stability.**
 
-Resonant Solver makes mathematical optimization audible. Every variable is an oscillator. Every error is noise. Every gradient is instability. When the computation converges, you hear it — a pure, stable tone emerges from chaos.
-
-This is not sonification. This is not data-to-music mapping. This is the optimization itself, made perceivable through sound. Every acoustic parameter is a mathematical function of the solver state. Nothing is aesthetic. Nothing is hardcoded.
-
-**You can detect convergence with your eyes closed.**
+Resonance makes computation audible. Not by mapping data to sound — by making the math itself produce sound. Wrong answers are noisy, shaky, quiet. Correct answers are clean, stable, loud. You can detect convergence with your eyes closed.
 
 ---
 
-## The Problem
+## Three Tools
 
-Visual debugging has a bottleneck: your eyes scan sequentially, miss subtle patterns, and require active attention. Meanwhile, human hearing:
+### 1. Resonant Solver
 
-- Detects **0.02% frequency errors** (0.1 Hz at A440)
-- Processes **all frequencies simultaneously** — not one at a time
-- Recognizes dissonance **in under 100ms** — before conscious thought
-- Has been detecting anomalies for **300,000 years** of evolution
+Every optimization problem becomes a sound. Every variable is an oscillator. The error function controls amplitude and noise. The gradient controls vibrato. Gradient descent runs in real-time — you hear the system converge.
 
-Resonant Solver exploits this: the ear becomes a precision instrument for detecting whether a computation has found its answer.
+**The 4 Layers:**
+
+| Layer | Math | Sound |
+|-------|------|-------|
+| Variable → Frequency | `f(x) = 200 + 20x` Hz | Pitch encodes the current value |
+| Error → Amplitude + Noise | `A = exp(-E(x))`, `noise = E(x)/10` | Wrong = quiet + noisy, Right = loud + clean |
+| Gradient → Vibrato | `vibrato = |∇E(x)| × 8` Hz | Instability = shaking pitch, minimum = rock steady |
+| Multi-variable → Interference | `s(t) = Σ sin(fᵢ t)` | Constraint violation = beating between tones |
+
+**6 built-in problems:** Single variable, Two variables, Quadratic bowl, Rosenbrock valley, Three variables, Saddle point.
+
+### 2. Code Scanner
+
+A sonic cursor that moves through code line by line. At each line, code quality determines the sound:
+
+- **Nesting depth** → frequency shift (deeper = higher pitch)
+- **Cognitive weight** → noise level
+- **Code smells** → vibrato + dissonance (eval, var, loose equality, empty catch, etc.)
+- **Semantic issues** → heavy penalties (Math.random() in audio params, missing ramps, dead computations, no gradient in optimization code)
+
+Paste code. Hit PLAY. Close your eyes. The clean sections purr. The messy sections howl.
+
+### 3. Style Learner
+
+Feed it your codebase — it extracts an **8-dimension style fingerprint**. Then paste AI-generated code — hear where it deviates. Each dimension is one voice in an 8-voice harmonic chord.
+
+**8 Dimensions (one voice each):**
+
+| Voice | Dimension | Frequency | What it measures |
+|-------|-----------|-----------|------------------|
+| 0 | Naming | 165 Hz | camelCase vs snake_case ratios, identifier length |
+| 1 | Declarations | 220 Hz | const/let/var ratio |
+| 2 | Functions | 275 Hz | Arrow vs function, average length |
+| 3 | Structure | 330 Hz | Nesting depth distribution |
+| 4 | Formatting | 385 Hz | Indentation, line length, semicolons |
+| 5 | Error Handling | 440 Hz | try/catch patterns, empty catches |
+| 6 | Async | 495 Hz | async/await vs .then() vs callbacks |
+| 7 | Comments | 550 Hz | Density, JSDoc usage, inline vs block |
+
+**How it works:**
+- Frequencies form the A2 harmonic series (fundamental 110 Hz)
+- Matching dimension → loud, pure sine (consonant partial)
+- Deviating dimension → quiet, noisy, vibrato (dissonant)
+- All matching → rich harmonic chord
+- All deviating → harsh inharmonic noise
+
+**Features:**
+- **Train**: Paste reference code → extract fingerprint → radar chart visualization
+- **Compare**: Paste new code → per-dimension deviation scores → 8-voice sonification
+- **Scan Mode**: Cursor moves line-by-line through compared code, sound updates per line
+- **Corrections**: Accept/reject deviations to teach the system your actual standards
+- **LLM Detection**: Automatically flags AI-generated code by statistical signature (high const ratio, excessive comments, short functions, over-eager error handling)
+- **Persistence**: Save/load fingerprints to localStorage
+
+---
+
+## Technical Architecture
+
+```
+resonance/
+├── index.html          # Resonant Solver page
+├── scanner.html        # Code Scanner page
+├── learn.html          # Style Learner page (3-panel layout)
+├── style.css           # Shared styles (dark theme, monospace)
+├── scanner.css         # Scanner-specific styles
+├── learn.css           # Style Learner styles (3-panel grid)
+└── src/
+    ├── app.js          # Solver controller (gradient descent loop)
+    ├── solver.js       # ResonantSolver class (6 problems, gradient computation)
+    ├── audio.js        # ResonantAudio class (N-voice Web Audio engine)
+    ├── config.js       # All constants in one place (no magic numbers)
+    ├── scanner.js      # Scanner controller (line-by-line playback)
+    ├── code-analyzer.js # Deep code analysis (AST + semantic smells)
+    ├── style-engine.js # Style fingerprinting + comparison + learning
+    └── learn.js        # Style Learner controller (8-voice audio + scan mode)
+```
+
+### Web Audio Signal Chain
+
+**Per voice:**
+```
+OscillatorNode (sine, f=200+20x)
+    ↓
+    ← LFO (5Hz sine, depth=|∇E|×8) modulates frequency
+    ↓
+GainNode (gain=exp(-E))
+    ↓
+StereoPannerNode (spread voices across stereo)
+    ↓
+AnalyserNode (FFT for waveform visualization)
+    ↓
+MasterGain → destination
+```
+
+**Noise path:**
+```
+AudioBufferSourceNode (2s white noise, looped)
+    ↓
+GainNode (gain ∝ E(x))
+    ↓
+AnalyserNode → MasterGain → destination
+```
+
+**Click prevention:** Every parameter change uses `cancelScheduledValues(t)` + `setValueAtTime(currentValue, t)` + `linearRampToValueAtTime(target, t + 30ms)`.
+
+### AST Analysis (Acorn)
+
+The Code Analyzer and Style Engine both use [Acorn](https://github.com/acornjs/acorn) to parse JavaScript into an AST, then walk it with `acorn-walk`.
+
+**Code Analyzer detects:**
+- Structural: nesting depth, cognitive weight, line length
+- Syntax smells: `var`, `==`, `eval`, empty catch, nested ternary, magic numbers
+- Semantic smells: `Math.random()` in frequency/amplitude assignments, `setValueAtTime` without ramp (causes audio clicks), computed error never used for sound, optimization loop with no gradient, `setInterval` without `clearInterval`
+
+**Style Engine extracts:**
+- Per-identifier naming classification (camelCase/snake_case/PascalCase/SCREAMING_SNAKE)
+- Declaration kind ratios (const/let/var)
+- Function style ratios (arrow vs declaration vs expression)
+- Nesting depth histogram
+- Indentation detection (tab vs spaces, unit size)
+- Semicolon usage ratio
+- Error handling density
+- Async pattern ratios (await vs .then vs callbacks)
+- Comment density and style
+
+### Sonification Mapping (Non-negotiable Rules)
+
+1. No random pitch mapping — every frequency is derived from a variable value
+2. No aesthetic tuning — the math determines the sound
+3. Must encode gradient — vibrato depth = gradient magnitude
+4. Must respond to small changes — continuous, not discrete
+5. Convergence must be audible — humans detect it eyes-closed
+6. Sound parameters are invertible — you can reconstruct the math state from the sound
+
+---
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:5557`:
+- `/` — Resonant Solver (optimization problems)
+- `/scanner.html` — Code Scanner (paste code, hear quality)
+- `/learn.html` — Style Learner (train fingerprint, compare code)
+
+## Build
+
+```bash
+npm run build    # Output in dist/
+npm test         # Run tests
+```
+
+## Dependencies
+
+- **[Acorn](https://github.com/acornjs/acorn)** — JavaScript parser (AST generation)
+- **[Vite](https://vitejs.dev/)** — Build tool and dev server
+- **Web Audio API** — All audio synthesis (no external audio libraries)
+
+Zero runtime dependencies beyond Acorn. No frameworks. No React. No bundler magic. Just math → sound.
 
 ---
 
 ## The Goal
 
-Build a system where **mathematical truth has a sound**, and that sound is derived purely from the mathematics — not designed, not tuned, not mapped arbitrarily.
+AI models generate code that is syntactically correct but stylistically wrong for your codebase. Linters catch formatting. Type checkers catch types. But nobody catches **style drift** — the subtle statistical divergence between how your team writes code and how an AI writes code.
 
-The long-term vision:
+Resonance catches it. Not by rules, but by learning the statistical fingerprint of your codebase and making deviations audible. When the AI's code matches your style, you hear harmony. When it doesn't, you hear dissonance. The system learns from your corrections — accept a deviation and it loosens that dimension; reject it and it tightens.
 
-1. **Any optimization problem** can be plugged in — define E(x) and the sound is automatic
-2. **Any domain** can use this — code quality, data anomalies, proof verification, LLM hallucination detection
-3. **The sound is the proof** — if it sounds stable, the math guarantees convergence
-4. **New training signal for AI** — spectrograms of correct vs incorrect reasoning are a novel feature space
-
----
-
-## How It Works — The 4 Layers
-
-Every problem reduces to: **minimize E(x₁, x₂, ..., xₙ) → 0**
-
-### Layer 1: Variable → Frequency
-
-```
-f(xᵢ) = 200 + 20xᵢ   Hz
-```
-
-Each variable is a sine wave oscillator. Its value determines its pitch. As gradient descent adjusts x, you hear the pitch shift in real time. This is a linear, invertible map — you can reconstruct the variable value from the frequency.
-
-### Layer 2: Error → Amplitude + Noise
-
-```
-Amplitude = exp(−E(x))      // High error = silent, low error = loud
-Noise     = min(1, E(x)/10) // High error = static, low error = clean
-```
-
-| E(x) | Amplitude | Noise | You Hear |
-|------|-----------|-------|----------|
-| 100 | ~0 | 1.0 | Pure static |
-| 1 | 0.37 | 0.1 | Tone in noise |
-| 0.001 | 0.999 | ~0 | Pure tone |
-
-`exp(-x)` is not a design choice. It is the natural function that maps [0, ∞) → (0, 1] with the property that zero error = maximum signal. The math guarantees: **E → 0 implies noise vanishes and amplitude maximizes.**
-
-### Layer 3: Gradient → Vibrato
-
-```
-vibrato_i = min(50, |∂E/∂xᵢ| × 8)   Hz modulation depth
-```
-
-The gradient measures how far each variable is from where it needs to be. Large gradient = the oscillator's frequency **shakes** (vibrato via 5 Hz LFO). At the minimum, ∇E = 0, and the tone is rock-steady.
-
-### Layer 4: Multi-Variable → Interference
-
-Multiple variables = multiple oscillators. When constraints are violated, frequencies differ and you hear **beating** — an audible pulsation. When all variables converge, the oscillators lock into consonance. Voices are stereo-panned so you can localize which variable is still moving.
-
----
-
-## Optimization Engine
-
-**Gradient descent with momentum + gradient clipping:**
-
-```
-g = ∇E(x)                            // Gradient (analytical or numerical)
-if ‖g‖ > 10: g = g × (10 / ‖g‖)     // Clip to prevent explosion
-v = 0.9v − lr × g                    // Momentum accumulation
-x = x + v                            // Parameter update
-```
-
-- **Learning rate**: 0.01 default, 0.001 for steep problems (Rosenbrock)
-- **Momentum**: 0.9 — accelerates through flat regions, dampens oscillation
-- **Gradient clipping**: max norm 10 — essential for functions with 100x+ gradient scaling
-- **Numerical gradient**: central difference `(E(x+h) − E(x−h)) / 2h` when analytical form unavailable
-- **Convergence**: `E(x) < 0.001` AND `‖∇E‖ < 0.01`
-
----
-
-## Audio Architecture
-
-Built on the **Web Audio API**. Real-time, zero-latency, runs entirely in the browser.
-
-```
-Per voice (one per variable):
-  OscillatorNode (sine) ──→ GainNode (amp from error) ──→ StereoPannerNode ──→ AnalyserNode ──→ Master
-       ↑ freq modulated by:
-  LFO (5Hz sine) ──→ GainNode (depth from gradient)
-
-Shared across all voices:
-  WhiteNoise (looped AudioBuffer) ──→ GainNode (level from error) ──→ AnalyserNode ──→ Master
-```
-
-**Click prevention**: all parameter changes use `cancelScheduledValues(t) → setValueAtTime(current, t) → linearRampToValueAtTime(target, t + 30ms)`. No discontinuities, no pops.
-
-**Convergence chord**: on convergence, a major chord blooms at `440 × [1, 5/4, 3/2, 2]` Hz — the mathematically simplest consonant ratios — and fades over 1.5s with exponential decay.
-
----
-
-## Verified Results
-
-All 6 problems converge correctly:
-
-| Problem | Error Function | Target | Result | Steps | Final Error |
-|---------|---------------|--------|--------|-------|-------------|
-| Single Variable | (x−5)² | x=5 | x=4.995 | 106 | 2.3e-5 |
-| Two Variables | (x+y−10)²+(x−y−2)² | (6, 4) | (6.000, 4.001) | 119 | 2.9e-6 |
-| Quadratic Bowl | x²+y² | (0, 0) | (0.000, −0.003) | 106 | 7.3e-6 |
-| Rosenbrock Valley | (1−x)²+100(y−x²)² | (1, 1) | (0.989, 0.978) | 794 | 1.2e-4 |
-| Three Variables | (x−1)²+(y−2)²+(z−3)²+(x+y+z−6)² | (1,2,3) | (1.000, 2.003, 2.996) | 252 | 2.4e-5 |
-| Multi-Minima | x²+y²+3sin²(x)sin²(y) | (0, 0) | (0.005, −0.001) | 269 | 2.4e-5 |
-
-**Acoustic verification** for every problem:
-- **Start**: static, silence, shaking frequencies (high error, high gradient)
-- **Mid-solve**: tone emerges from noise, vibrato decreases, volume rises
-- **Converged**: pure, stable, loud sine tone — zero noise, zero vibrato
-
-The Rosenbrock Valley (the classic hard optimization benchmark) required gradient clipping and reduced learning rate to prevent divergence from its 100x gradient scaling.
-
----
-
-## Project Structure
-
-```
-resonance/
-├── index.html           # Single-page app
-├── style.css            # Dark theme, monospace, cyan/green/red/yellow
-├── package.json         # Vite dev server
-├── vite.config.js
-├── RESONANT_SOLVER.md   # Full technical documentation
-└── src/
-    ├── solver.js        # ResonantSolver engine + 6 problem definitions
-    ├── audio.js         # Web Audio API real-time engine
-    └── app.js           # UI, optimization loop, waveform/chart rendering
-```
-
----
-
-## UI
-
-- **Problem tabs**: switch between 6 optimization problems
-- **Waveform**: real-time oscilloscope colored by error (red → green)
-- **State cards**: ERROR, |∇E|, STEP, STATUS — all update every frame
-- **Variable monitors**: per-variable value + FREQ/AMP/VIB/NOISE bars
-- **Error chart**: log₁₀(E) history — watch the descent curve form
-- **Controls**: START/PAUSE/RESET, learning rate slider, speed slider, volume
-
----
-
-## Rules (Non-Negotiable)
-
-These ensure mathematical honesty over aesthetic appeal:
-
-| Rule | Why |
-|------|-----|
-| No random pitch mapping | Frequency is `200 + 20x` — deterministic, invertible |
-| No aesthetic tuning | All sound params derived from E(x) and ∇E(x) |
-| Must encode gradient | Vibrato = `\|∂E/∂xᵢ\| × 8` — not approximated |
-| Must respond to small changes | 0.001 change in x = 0.02 Hz shift (audible) |
-| Convergence must be audible | Noise→pure tone IS the proof that E→0 |
-| Eyes-closed detection | The acoustic gap between solving/converged is unmistakable |
-
----
-
-## Future Directions
-
-The 4-layer framework (`variable→freq`, `error→amp+noise`, `gradient→vibrato`, `multi-var→interference`) is domain-agnostic. Define E(x) for any domain and the sound follows:
-
-- **Code quality**: E = weighted sum of AST-detected issues → hear bugs as dissonance
-- **LLM hallucination**: E = semantic incoherence score → unstable harmonics = likely hallucination
-- **Data anomalies**: E = deviation from expected distribution → anomaly = noise spike
-- **Proof verification**: E = logical gap between steps → invalid step = frequency jump
-- **DNA/protein folding**: E = free energy of molecular conformation → folded = consonance
-
-The spectrogram of a converging optimization is a novel feature space. A CNN trained on "convergence spectrograms" vs "divergence spectrograms" could detect solution quality without running the full optimization.
-
----
-
-## Quick Start
-
-```bash
-git clone https://github.com/Roxrite0509/resonance.git
-cd resonance
-npm install
-npm run dev
-```
-
-Open `http://localhost:5557`. Pick a problem. Click START. Close your eyes. Listen to computation find the answer.
-
----
-
-## License
-
-MIT
+The sound is not a gimmick. It's a parallel information channel. Your eyes read the code. Your ears hear the quality. Both together are faster than either alone.

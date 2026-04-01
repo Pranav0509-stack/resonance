@@ -16,6 +16,8 @@
  * - Global minimum = most perceptually stable sound
  */
 
+import { OPTIMIZATION, SONIFICATION } from './config.js';
+
 export class ResonantSolver {
   constructor(config = {}) {
     // Variables
@@ -27,8 +29,8 @@ export class ResonantSolver {
     this.gradientFn = null;   // ∇E(x) → vector (or auto-computed)
 
     // Optimization
-    this.lr = config.lr || 0.01;      // Learning rate
-    this.momentum = config.momentum || 0.9;
+    this.lr = config.lr || OPTIMIZATION.DEFAULT_LR;
+    this.momentum = config.momentum || OPTIMIZATION.MOMENTUM;
     this.velocity = [];
 
     // State
@@ -45,11 +47,11 @@ export class ResonantSolver {
     this.vibratos = [];
     this.noises = [];
 
-    // Mapping parameters
-    this.freqBase = config.freqBase || 200;
-    this.freqScale = config.freqScale || 20;
-    this.vibratoScale = config.vibratoScale || 8;
-    this.vibratoRate = config.vibratoRate || 5; // Hz
+    // Mapping parameters (from config — overridable per-problem)
+    this.freqBase     = config.freqBase     || SONIFICATION.FREQ_BASE;
+    this.freqScale    = config.freqScale    || SONIFICATION.FREQ_SCALE;
+    this.vibratoScale = config.vibratoScale || SONIFICATION.VIBRATO_SCALE;
+    this.vibratoRate  = config.vibratoRate  || SONIFICATION.VIBRATO_RATE;
   }
 
   /**
@@ -67,7 +69,7 @@ export class ResonantSolver {
     // Initialize variables (random if not specified)
     this.vars = initVals
       ? [...initVals]
-      : Array.from({ length: numVars }, () => (Math.random() - 0.5) * 20);
+      : Array.from({ length: numVars }, () => (Math.random() - 0.5) * OPTIMIZATION.INIT_RANGE);
 
     this.velocity = new Array(numVars).fill(0);
     this.step = 0;
@@ -110,7 +112,7 @@ export class ResonantSolver {
     // A = exp(-E(x))  — high error = quiet, low error = loud
     // noise ∝ E(x)     — high error = noisy, low error = clean
     const amplitude = Math.exp(-this.error);
-    const noise = Math.min(1, this.error / 10);
+    const noise = Math.min(1, this.error / SONIFICATION.NOISE_ERROR_SCALE);
     this.amplitudes = x.map(() => amplitude);
     this.noises = x.map(() => noise);
 
@@ -118,11 +120,13 @@ export class ResonantSolver {
     // vibrato_i ∝ |∂E/∂xᵢ|
     // Large gradient = frequency shakes. Small gradient = stable tone.
     this.vibratos = this.gradient.map(gi =>
-      Math.min(50, Math.abs(gi) * this.vibratoScale)
+      Math.min(SONIFICATION.VIBRATO_MAX_DEPTH, Math.abs(gi) * this.vibratoScale)
     );
 
-    // Convergence detection
-    this.converged = this.error < 0.001 && this.gradMagnitude < 0.01;
+    // Convergence detection (both energy AND gradient must be flat)
+    this.converged =
+      this.error < OPTIMIZATION.CONV_ERROR_THRESH &&
+      this.gradMagnitude < OPTIMIZATION.CONV_GRAD_THRESH;
   }
 
   /**
@@ -130,7 +134,7 @@ export class ResonantSolver {
    * ∂E/∂xᵢ ≈ (E(x + hêᵢ) - E(x - hêᵢ)) / 2h
    */
   _numericalGradient(x) {
-    const h = 1e-5;
+    const h = OPTIMIZATION.FINITE_DIFF_H;
     return x.map((_, i) => {
       const xPlus = [...x]; xPlus[i] += h;
       const xMinus = [...x]; xMinus[i] -= h;
@@ -147,7 +151,7 @@ export class ResonantSolver {
    */
   step_() {
     // Gradient clipping — prevents explosion on steep problems (e.g. Rosenbrock)
-    const maxNorm = 10;
+    const maxNorm = OPTIMIZATION.GRAD_MAX_NORM;
     const norm = Math.sqrt(this.gradient.reduce((s, g) => s + g * g, 0));
     const scale = norm > maxNorm ? maxNorm / norm : 1;
 
@@ -167,7 +171,7 @@ export class ResonantSolver {
   reset(initVals = null) {
     this.vars = initVals
       ? [...initVals]
-      : Array.from({ length: this.numVars }, () => (Math.random() - 0.5) * 20);
+      : Array.from({ length: this.numVars }, () => (Math.random() - 0.5) * OPTIMIZATION.INIT_RANGE);
     this.velocity = new Array(this.numVars).fill(0);
     this.step = 0;
     this.converged = false;
