@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   root: '.',
-  base: '/resonance/',
+  base: command === 'build' ? '/resonance/' : '/',
   build: {
     outDir: 'dist',
     rollupOptions: {
@@ -14,4 +14,4 @@ export default defineConfig({
   },
   server: { port: 5557, host: true },
   optimizeDeps: { include: ['acorn', 'acorn-walk'] }
-});
+}));
