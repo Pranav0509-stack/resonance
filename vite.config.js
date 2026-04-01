@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 export default defineConfig({
   root: '.',
+  base: '/resonance/',
   build: {
     outDir: 'dist',
     rollupOptions: {
