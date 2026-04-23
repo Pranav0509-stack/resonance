@@ -9,7 +9,7 @@
  * Reuses ResonantAudio (1 voice) from the solver project.
  */
 
-import { CodeAnalyzer, SAMPLES } from './code-analyzer.js';
+import { CodeAnalyzer } from './code-analyzer.js';
 import { ResonantAudio } from './audio.js';
 
 const analyzer = new CodeAnalyzer();
@@ -386,7 +386,6 @@ function goBack() {
 
 // ===== INIT =====
 function init() {
-  renderSamples();
 
   $('btn-scan')?.addEventListener('click', scanCode);
   $('btn-play')?.addEventListener('click', play);

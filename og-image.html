@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 1200px; height: 628px;
+    overflow: hidden;
+    background: #09090b;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<canvas id="c" width="1200" height="628" style="position:absolute;inset:0"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 1200, H = 628;
+
+// ── BG ──
+ctx.fillStyle = '#09090b';
+ctx.fillRect(0,0,W,H);
+
+// ── GRID ──
+ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+ctx.lineWidth = 1;
+for(let x=0;x<W;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+for(let y=0;y<H;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+// ── GLOW blobs ──
+function blob(x,y,r,col){
+  const g=ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,col); g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+blob(200,314,380,'rgba(139,92,246,0.12)');
+blob(1000,200,300,'rgba(244,114,182,0.08)');
+blob(900,500,250,'rgba(34,211,238,0.07)');
+
+// ── WAVEFORMS ──
+function drawWave(yCenter, amp, freq, phase, color, alpha, lineW){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineW;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  for(let x=0;x<=W;x+=2){
+    const t = x/W;
+    const y = yCenter
+      + Math.sin(t*freq*Math.PI*2 + phase) * amp * Math.sin(t*Math.PI)
+      + Math.sin(t*freq*0.7*Math.PI*2 + phase*1.3) * amp*0.3;
+    x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// dissonant waves (top half — wrong)
+drawWave(160, 38, 7.3, 0,    '#f87171', 0.7, 2.5);
+drawWave(160, 28, 11.7, 1.1, '#fbbf24', 0.5, 1.5);
+drawWave(160, 18, 17.2, 2.4, '#f472b6', 0.4, 1.2);
+
+// transition zone — center line
+const grad = ctx.createLinearGradient(0,0,W,0);
+grad.addColorStop(0,'rgba(139,92,246,0)');
+grad.addColorStop(0.5,'rgba(139,92,246,0.6)');
+grad.addColorStop(1,'rgba(139,92,246,0)');
+ctx.strokeStyle = grad;
+ctx.lineWidth = 1;
+ctx.setLineDash([6,8]);
+ctx.beginPath(); ctx.moveTo(0,314); ctx.lineTo(W,314); ctx.stroke();
+ctx.setLineDash([]);
+
+// consonant waves (bottom half — right)
+drawWave(470, 32, 3,   0,    '#4ade80', 0.8, 3);
+drawWave(470, 22, 6,   0,    '#22d3ee', 0.5, 2);
+drawWave(470, 12, 9,   0,    '#a78bfa', 0.4, 1.5);
+
+// ── LEFT LABEL: DISSONANT ──
+ctx.save();
+ctx.globalAlpha = 0.5;
+ctx.font = '500 11px Inter';
+ctx.letterSpacing = '2px';
+ctx.fillStyle = '#f87171';
+ctx.fillText('DISSONANT  ·  AI drift detected', 48, 110);
+ctx.restore();
+
+// ── RIGHT LABEL: CONVERGED ──
+ctx.save();
+ctx.globalAlpha = 0.5;
+ctx.font = '500 11px Inter';
+ctx.fillStyle = '#4ade80';
+ctx.textAlign = 'right';
+ctx.fillText('CONVERGED  ·  solution found', W-48, 530);
+ctx.restore();
+ctx.textAlign = 'left';
+
+// ── CENTER PANEL ──
+const panelX = 290, panelY = 170, panelW = 620, panelH = 288;
+// panel bg
+ctx.save();
+ctx.globalAlpha = 0.7;
+ctx.fillStyle = '#111113';
+roundRect(ctx, panelX, panelY, panelW, panelH, 20);
+ctx.fill();
+ctx.restore();
+
+// panel border
+ctx.save();
+ctx.globalAlpha = 0.25;
+const borderGrad = ctx.createLinearGradient(panelX,panelY,panelX+panelW,panelY+panelH);
+borderGrad.addColorStop(0,'#8b5cf6');
+borderGrad.addColorStop(1,'#f472b6');
+ctx.strokeStyle = borderGrad;
+ctx.lineWidth = 1.5;
+roundRect(ctx, panelX, panelY, panelW, panelH, 20);
+ctx.stroke();
+ctx.restore();
+
+// ── HEADLINE ──
+ctx.save();
+ctx.font = '800 52px Inter';
+ctx.fillStyle = '#fafafa';
+ctx.textAlign = 'center';
+// gradient text
+const tg = ctx.createLinearGradient(panelX, 0, panelX+panelW, 0);
+tg.addColorStop(0,'#e2d9f3');
+tg.addColorStop(0.5,'#ffffff');
+tg.addColorStop(1,'#f9a8d4');
+ctx.fillStyle = tg;
+ctx.fillText('Hear Bad Code.', W/2, panelY+68);
+ctx.restore();
+
+// ── SUBHEADLINE ──
+ctx.save();
+ctx.font = '400 20px Inter';
+ctx.fillStyle = 'rgba(250,250,250,0.55)';
+ctx.textAlign = 'center';
+ctx.fillText('Before you read a single line.', W/2, panelY+108);
+ctx.restore();
+
+// ── DIVIDER ──
+ctx.save();
+ctx.globalAlpha = 0.15;
+ctx.strokeStyle = '#ffffff';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(panelX+48, panelY+130);
+ctx.lineTo(panelX+panelW-48, panelY+130);
+ctx.stroke();
+ctx.restore();
+
+// ── 3 PILLARS ──
+const pills = [
+  { icon: '∿', label: 'Variable', sub: 'Oscillator' },
+  { icon: '⟆', label: 'Error', sub: 'Amplitude' },
+  { icon: '〰', label: 'Gradient', sub: 'Vibrato' },
+];
+pills.forEach((p,i) => {
+  const x = panelX + 90 + i * 160;
+  const y = panelY + 175;
+
+  // pill bg
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = 'rgba(139,92,246,0.1)';
+  roundRect(ctx, x-42, y-32, 84, 70, 10);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(139,92,246,0.25)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x-42, y-32, 84, 70, 10);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.font = '500 22px Inter';
+  ctx.fillStyle = '#a78bfa';
+  ctx.textAlign = 'center';
+  ctx.fillText(p.icon, x, y);
+  ctx.font = '600 12px Inter';
+  ctx.fillStyle = '#fafafa';
+  ctx.fillText(p.label, x, y+18);
+  ctx.font = '400 11px Inter';
+  ctx.fillStyle = 'rgba(250,250,250,0.4)';
+  ctx.fillText('→ ' + p.sub, x, y+33);
+  ctx.restore();
+});
+
+// ── ARROW between pillars ──
+[380, 540].forEach(ax => {
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  ctx.font = '500 16px Inter';
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText('→', ax, panelY+195);
+  ctx.restore();
+});
+
+// ── BOTTOM CTA ──
+ctx.save();
+ctx.font = '500 14px Inter';
+ctx.fillStyle = 'rgba(167,139,250,0.8)';
+ctx.textAlign = 'center';
+ctx.fillText('What if your IDE could feel wrong before you analyze it?', W/2, panelY+272);
+ctx.restore();
+
+// ── BOTTOM BAR ──
+ctx.save();
+ctx.font = '500 12px Inter';
+ctx.fillStyle = 'rgba(250,250,250,0.18)';
+ctx.textAlign = 'left';
+ctx.fillText('resonance.ai', 48, H-28);
+ctx.textAlign = 'right';
+ctx.fillStyle = 'rgba(139,92,246,0.6)';
+ctx.font = '600 12px Inter';
+ctx.fillText('github.com/Roxrite0509/resonance', W-48, H-28);
+ctx.restore();
+
+// ── ACCENT DOTS ──
+[[panelX+1,panelY+1],[panelX+panelW-1,panelY+1],[panelX+1,panelY+panelH-1],[panelX+panelW-1,panelY+panelH-1]].forEach(([x,y])=>{
+  ctx.save();
+  ctx.fillStyle='#8b5cf6';
+  ctx.globalAlpha=0.6;
+  ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+});
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+</script>
+</body>
+</html>

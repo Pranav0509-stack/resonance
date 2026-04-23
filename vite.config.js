@@ -7,11 +7,9 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         main: 'index.html',
-        scanner: 'scanner.html',
-        learn: 'learn.html',
       },
     },
   },
-  server: { port: 5557, host: true },
+  server: { port: parseInt(process.env.PORT) || 5557, host: true },
   optimizeDeps: { include: ['acorn', 'acorn-walk'] }
 }));

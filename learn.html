@@ -37,20 +37,7 @@
         <button id="deleteProfileBtn" class="btn-small btn-danger">Delete</button>
       </div>
 
-      <textarea id="trainInput" placeholder="Paste your reference code here (or multiple files one after another)…
-
-// Example: your company's coding standards
-const MAX_RETRIES = 3;
-
-function fetchData(url, options = {}) {
-  const { timeout = 5000, retries = MAX_RETRIES } = options;
-  return fetch(url, { signal: AbortSignal.timeout(timeout) })
-    .then(res => res.json())
-    .catch(err => {
-      if (retries > 0) return fetchData(url, { ...options, retries: retries - 1 });
-      throw err;
-    });
-}"></textarea>
+      <textarea id="trainInput" placeholder="Paste your codebase here to build a style fingerprint…"></textarea>
 
       <div class="train-actions">
         <button id="trainBtn" class="btn-primary">Extract Fingerprint</button>
@@ -73,18 +60,7 @@ function fetchData(url, options = {}) {
         <p class="subtitle">Paste AI-generated or new code to measure style deviation</p>
       </div>
 
-      <textarea id="compareInput" placeholder="Paste AI-generated code here…
-
-// Example: code with style issues
-var getData = function(URL, Opts) {
-  return new Promise(function(resolve, reject) {
-    fetch(URL).then(function(response) {
-      resolve(response.json())
-    }).catch(function(err) {
-      reject(err)
-    })
-  })
-}"></textarea>
+      <textarea id="compareInput" placeholder="Paste AI-generated or new code here to measure style deviation…"></textarea>
 
       <div class="compare-actions">
         <button id="compareBtn" class="btn-primary">Compare &amp; Sonify</button>

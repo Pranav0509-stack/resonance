@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Resonance — Demo</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #09090b;
+    --bg2: #111113;
+    --bg3: #1c1c1f;
+    --border: #27272a;
+    --text: #fafafa;
+    --muted: #71717a;
+    --violet: #8b5cf6;
+    --violet2: #a78bfa;
+    --green: #4ade80;
+    --yellow: #facc15;
+    --red: #f87171;
+    --pink: #f472b6;
+    --cyan: #22d3ee;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    display: grid;
+    grid-template-rows: 56px 1fr 80px;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 16px; font-weight: 600; letter-spacing: -0.3px;
+  }
+  .logo-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--violet);
+    box-shadow: 0 0 12px var(--violet);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 12px var(--violet); }
+    50%      { box-shadow: 0 0 24px var(--violet2), 0 0 8px var(--violet); }
+  }
+  .stage-label {
+    font-size: 12px; font-weight: 500; letter-spacing: 0.5px;
+    color: var(--muted); text-transform: uppercase;
+    transition: color 0.4s;
+  }
+  .stage-label.active { color: var(--violet2); }
+
+  /* ── MAIN CANVAS AREA ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── WAVEFORM PANEL ── */
+  #wave-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+  }
+  #wave-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 60%, rgba(139,92,246,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  canvas#waveform {
+    width: 100%; max-width: 700px; height: 220px;
+    border-radius: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+
+  /* Error meter below waveform */
+  .error-row {
+    display: flex; align-items: center; gap: 16px;
+    margin-top: 20px; width: 100%; max-width: 700px;
+  }
+  .error-label { font-size: 11px; color: var(--muted); width: 80px; text-align: right; }
+  .error-bar-track {
+    flex: 1; height: 6px; border-radius: 3px;
+    background: var(--bg3);
+    position: relative; overflow: hidden;
+  }
+  #error-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+    background-size: 300% 100%;
+    transition: width 0.1s linear, background-position 0.3s;
+    width: 80%;
+    background-position: 100% 0;
+  }
+  .error-val {
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: var(--text); width: 70px;
+    transition: color 0.3s;
+  }
+
+  /* Oscillator voice bars */
+  #voices {
+    display: flex; gap: 12px; margin-top: 20px;
+    width: 100%; max-width: 700px;
+  }
+  .voice-card {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 14px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 0.3s;
+  }
+  .voice-card.converged { border-color: var(--green); }
+  .voice-name { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  .voice-freq { font-size: 18px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .voice-amp-bar {
+    height: 3px; border-radius: 2px; background: var(--border);
+    overflow: hidden;
+  }
+  .voice-amp-fill {
+    height: 100%; border-radius: 2px;
+    background: var(--violet);
+    transition: width 0.08s linear;
+  }
+
+  /* ── RIGHT PANEL ── */
+  #right-panel {
+    display: flex; flex-direction: column;
+    background: var(--bg2);
+    overflow: hidden;
+  }
+
+  /* Scenario switcher */
+  #scenarios {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .scenario-label {
+    font-size: 10px; color: var(--muted); letter-spacing: 0.6px;
+    text-transform: uppercase; margin-bottom: 2px;
+  }
+  .scenario-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 7px;
+    padding: 8px 12px; font-size: 12px; cursor: pointer;
+    text-align: left; transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .scenario-btn .s-icon { font-size: 14px; }
+  .scenario-btn:hover { border-color: var(--violet); color: var(--text); }
+  .scenario-btn.active {
+    background: rgba(139,92,246,0.12);
+    border-color: var(--violet);
+    color: var(--violet2);
+  }
+
+  /* Step counter / progress */
+  #step-info {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .step-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .step-key { font-size: 11px; color: var(--muted); }
+  .step-val { font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  #progress-track {
+    height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--violet), var(--pink));
+    width: 0%; transition: width 0.2s;
+  }
+
+  /* History sparkline */
+  canvas#sparkline {
+    display: block;
+    width: calc(100% - 32px); height: 80px;
+    margin: 16px;
+    border-radius: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+
+  /* Convergence overlay */
+  #conv-overlay {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    background: rgba(9,9,11,0.85);
+    backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.4s;
+    z-index: 100;
+  }
+  #conv-overlay.show { opacity: 1; pointer-events: all; }
+  .conv-title {
+    font-size: 48px; font-weight: 700; letter-spacing: -1px;
+    background: linear-gradient(135deg, var(--green), var(--cyan), var(--violet2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
+    background-size: 200% auto;
+  }
+  @keyframes shimmer { to { background-position: 200% center; } }
+  .conv-subtitle { font-size: 15px; color: var(--muted); }
+  .conv-stats {
+    display: flex; gap: 32px; margin-top: 8px;
+  }
+  .conv-stat { text-align: center; }
+  .conv-stat-val { font-size: 28px; font-weight: 600; font-family: 'JetBrains Mono', monospace; color: var(--green); }
+  .conv-stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── BOTTOM BAR ── */
+  footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .footer-left { display: flex; gap: 24px; align-items: center; }
+  .footer-tag {
+    font-size: 11px; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .footer-tag .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    animation: blink 1.2s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .footer-right {
+    font-size: 11px; color: var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── CAPTION OVERLAY for recording ── */
+  #caption {
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+    background: rgba(139,92,246,0.15);
+    border: 1px solid rgba(139,92,246,0.4);
+    backdrop-filter: blur(12px);
+    border-radius: 99px;
+    padding: 8px 20px;
+    font-size: 13px; color: var(--violet2);
+    white-space: nowrap;
+    opacity: 0; transition: opacity 0.4s;
+    pointer-events: none; z-index: 200;
+  }
+  #caption.show { opacity: 1; }
+
+  /* Particle burst on convergence */
+  .particle {
+    position: fixed;
+    width: 6px; height: 6px; border-radius: 50%;
+    pointer-events: none;
+    animation: particle-fly 1.2s ease-out forwards;
+  }
+  @keyframes particle-fly {
+    0%   { transform: translate(0,0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      Resonance
+    </div>
+    <div class="stage-label" id="stage-label">Initializing…</div>
+    <div style="font-size:12px;color:var(--muted)">resonance.ai/demo</div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+
+    <!-- WAVEFORM -->
+    <div id="wave-panel">
+      <canvas id="waveform"></canvas>
+      <div class="error-row">
+        <div class="error-label">Error E(x)</div>
+        <div class="error-bar-track"><div id="error-bar-fill"></div></div>
+        <div class="error-val" id="error-val">—</div>
+      </div>
+      <div id="voices"></div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="right-panel">
+      <div id="scenarios">
+        <div class="scenario-label">Problems</div>
+        <button class="scenario-btn active" data-idx="0">
+          <span class="s-icon">〰</span> Single Variable  <small style="margin-left:auto;color:var(--muted)">E=(x−5)²</small>
+        </button>
+        <button class="scenario-btn" data-idx="1">
+          <span class="s-icon">∿</span> Two Variables <small style="margin-left:auto;color:var(--muted)">system</small>
+        </button>
+        <button class="scenario-btn" data-idx="2">
+          <span class="s-icon">🍌</span> Rosenbrock <small style="margin-left:auto;color:var(--muted)">hard</small>
+        </button>
+        <button class="scenario-btn" data-idx="3">
+          <span class="s-icon">🔱</span> Three Variables <small style="margin-left:auto;color:var(--muted)">3-voice</small>
+        </button>
+      </div>
+
+      <div id="step-info">
+        <div class="step-row">
+          <span class="step-key">Steps</span>
+          <span class="step-val" id="step-count">0</span>
+        </div>
+        <div class="step-row">
+          <span class="step-key">|∇E|</span>
+          <span class="step-val" id="grad-val">—</span>
+        </div>
+        <div class="step-row" style="margin-bottom:12px">
+          <span class="step-key">Status</span>
+          <span class="step-val" id="status-val" style="color:var(--yellow)">solving…</span>
+        </div>
+        <div id="progress-track"><div id="progress-fill"></div></div>
+      </div>
+
+      <canvas id="sparkline"></canvas>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-left">
+      <div class="footer-tag">
+        <div class="dot"></div>
+        Audio active
+      </div>
+      <div class="footer-tag">Variables → Oscillators · Error → Amplitude · Gradient → Vibrato</div>
+    </div>
+    <div class="footer-right">github.com/Roxrite0509/resonance</div>
+  </footer>
+
+</div>
+
+<!-- CONVERGENCE OVERLAY -->
+<div id="conv-overlay">
+  <div class="conv-title">✦ Converged</div>
+  <div class="conv-subtitle" id="conv-problem-name"></div>
+  <div class="conv-stats">
+    <div class="conv-stat">
+      <div class="conv-stat-val" id="conv-steps">—</div>
+      <div class="conv-stat-label">steps</div>
+    </div>
+    <div class="conv-stat">
+      <div class="conv-stat-val" id="conv-error">—</div>
+      <div class="conv-stat-label">final error</div>
+    </div>
+    <div class="conv-stat">
+      <div class="conv-stat-val" id="conv-vars">—</div>
+      <div class="conv-stat-label">solution</div>
+    </div>
+  </div>
+</div>
+
+<!-- CAPTION for recording -->
+<div id="caption"></div>
+
+<script>
+// ── PROBLEMS ─────────────────────────────────────────────────────────────────
+const PROBLEMS = [
+  {
+    name: 'Single Variable',
+    eq: 'E(x) = (x − 5)²',
+    numVars: 1,
+    lr: 0.05,
+    error: ([x]) => (x - 5) ** 2,
+    gradient: ([x]) => [2 * (x - 5)],
+    init: () => [-8 + Math.random() * 2],
+    solution: [5],
+    colors: ['#8b5cf6'],
+  },
+  {
+    name: 'Two Variables',
+    eq: 'E(x,y) = (x+y−10)² + (x−y−2)²',
+    numVars: 2,
+    lr: 0.02,
+    error: ([x, y]) => (x + y - 10) ** 2 + (x - y - 2) ** 2,
+    gradient: ([x, y]) => [
+      2*(x+y-10) + 2*(x-y-2),
+      2*(x+y-10) - 2*(x-y-2),
+    ],
+    init: () => [-5 + Math.random(), -5 + Math.random()],
+    solution: [6, 4],
+    colors: ['#8b5cf6', '#f472b6'],
+  },
+  {
+    name: 'Rosenbrock Valley',
+    eq: 'E(x,y) = (1−x)² + 100(y−x²)²',
+    numVars: 2,
+    lr: 0.001,
+    error: ([x, y]) => (1-x)**2 + 100*(y-x**2)**2,
+    gradient: ([x, y]) => [
+      -2*(1-x) - 400*x*(y-x**2),
+      200*(y-x**2),
+    ],
+    init: () => [-1.2, 1.0],
+    solution: [1, 1],
+    colors: ['#f472b6', '#22d3ee'],
+  },
+  {
+    name: 'Three Variables',
+    eq: 'E(x,y,z) = (x−1)²+(y−2)²+(z−3)²+(x+y+z−6)²',
+    numVars: 3,
+    lr: 0.03,
+    error: ([x,y,z]) => (x-1)**2+(y-2)**2+(z-3)**2+(x+y+z-6)**2,
+    gradient: ([x,y,z]) => [
+      2*(x-1)+2*(x+y+z-6),
+      2*(y-2)+2*(x+y+z-6),
+      2*(z-3)+2*(x+y+z-6),
+    ],
+    init: () => [-3+Math.random(), -3+Math.random(), -3+Math.random()],
+    solution: [1, 2, 3],
+    colors: ['#8b5cf6', '#f472b6', '#22d3ee'],
+  },
+];
+
+// ── AUDIO ─────────────────────────────────────────────────────────────────────
+class Audio {
+  constructor() {
+    this.ctx = null; this.voices = [];
+    this.noiseNode = null; this.noiseGain = null;
+    this.masterGain = null; this.analyser = null;
+  }
+
+  async init(n, colors) {
+    this.stop();
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    const t = this.ctx.currentTime;
+
+    this.analyser = this.ctx.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.5;
+
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.setValueAtTime(0.35, t);
+    this.analyser.connect(this.masterGain);
+    this.masterGain.connect(this.ctx.destination);
+
+    // noise
+    const bufLen = this.ctx.sampleRate * 2;
+    const buf = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = Math.random()*2-1;
+    this.noiseNode = this.ctx.createBufferSource();
+    this.noiseNode.buffer = buf; this.noiseNode.loop = true;
+    this.noiseGain = this.ctx.createGain();
+    this.noiseGain.gain.setValueAtTime(0, t);
+    this.noiseNode.connect(this.noiseGain);
+    this.noiseGain.connect(this.analyser);
+    this.noiseNode.start();
+
+    this.voices = [];
+    for (let i = 0; i < n; i++) {
+      const osc = this.ctx.createOscillator(); osc.type = 'sine';
+      osc.frequency.setValueAtTime(300, t);
+      const lfo = this.ctx.createOscillator(); lfo.type = 'sine';
+      lfo.frequency.setValueAtTime(5, t);
+      const lfoG = this.ctx.createGain(); lfoG.gain.setValueAtTime(0, t);
+      lfo.connect(lfoG); lfoG.connect(osc.frequency); lfo.start();
+      const gain = this.ctx.createGain(); gain.gain.setValueAtTime(0, t);
+      osc.connect(gain);
+      const pan = this.ctx.createStereoPanner();
+      pan.pan.setValueAtTime(n > 1 ? -1 + 2*i/(n-1) : 0, t);
+      gain.connect(pan); pan.connect(this.analyser);
+      osc.start();
+      this.voices.push({ osc, lfo, lfoG, gain, pan });
+    }
+  }
+
+  update(freqs, amps, vibs, noise) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, r = 0.03;
+    freqs.forEach((f, i) => {
+      if (i >= this.voices.length) return;
+      const v = this.voices[i];
+      const freq = Math.max(60, Math.min(1800, f));
+      v.osc.frequency.cancelScheduledValues(t);
+      v.osc.frequency.setValueAtTime(v.osc.frequency.value, t);
+      v.osc.frequency.linearRampToValueAtTime(freq, t+r);
+      const amp = Math.max(0, Math.min(0.75, amps[i]));
+      v.gain.gain.cancelScheduledValues(t);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, t);
+      v.gain.gain.linearRampToValueAtTime(amp, t+r);
+      const vib = Math.max(0, Math.min(80, vibs[i]));
+      v.lfoG.gain.cancelScheduledValues(t);
+      v.lfoG.gain.setValueAtTime(v.lfoG.gain.value, t);
+      v.lfoG.gain.linearRampToValueAtTime(vib, t+r);
+    });
+    if (this.noiseGain) {
+      const ng = Math.max(0, Math.min(0.4, noise * 0.25));
+      this.noiseGain.gain.cancelScheduledValues(t);
+      this.noiseGain.gain.setValueAtTime(this.noiseGain.gain.value, t);
+      this.noiseGain.gain.linearRampToValueAtTime(ng, t+r);
+    }
+  }
+
+  celebrate() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    [1, 5/4, 3/2, 2, 5/2].forEach(r => {
+      const o = this.ctx.createOscillator(); o.type = 'sine';
+      o.frequency.value = 440 * r;
+      const g = this.ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.12, t+0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t+2.0);
+      o.connect(g); g.connect(this.masterGain);
+      o.start(t); o.stop(t+2.1);
+    });
+  }
+
+  stop() {
+    this.voices.forEach(v => {
+      try { v.osc.stop(); } catch(e) {}
+      try { v.lfo.stop(); } catch(e) {}
+    });
+    try { this.noiseNode?.stop(); } catch(e) {}
+    this.voices = [];
+    if (this.ctx) { this.ctx.close(); this.ctx = null; }
+  }
+
+  getAnalyser() { return this.analyser; }
+}
+
+// ── SOLVER ────────────────────────────────────────────────────────────────────
+class Solver {
+  constructor(p) {
+    this.p = p;
+    this.vars = p.init();
+    this.velocity = new Array(p.numVars).fill(0);
+    this.lr = p.lr || 0.02;
+    this.momentum = 0.9;
+    this.step = 0;
+    this.history = [];
+    this._compute();
+  }
+  _grad() {
+    if (this.p.gradient) return this.p.gradient(this.vars);
+    const h = 1e-5;
+    return this.vars.map((_, i) => {
+      const xp = [...this.vars]; xp[i] += h;
+      const xm = [...this.vars]; xm[i] -= h;
+      return (this.p.error(xp) - this.p.error(xm)) / (2*h);
+    });
+  }
+  _compute() {
+    this.error = this.p.error(this.vars);
+    this.history.push(this.error);
+    this.gradient = this._grad();
+    this.gradMag = Math.sqrt(this.gradient.reduce((s,g)=>s+g*g,0));
+    const FREQ_BASE = 200, FREQ_SCALE = 22;
+    this.freqs = this.vars.map(x => FREQ_BASE + FREQ_SCALE * x);
+    this.amps = this.vars.map(() => Math.exp(-this.error));
+    this.vibs = this.gradient.map(g => Math.min(60, Math.abs(g) * 8));
+    this.noise = Math.min(1, this.error / 10);
+    this.converged = this.error < 0.001 && this.gradMag < 0.01;
+  }
+  advance() {
+    if (this.converged) return;
+    const maxNorm = 10;
+    const norm = Math.sqrt(this.gradient.reduce((s,g)=>s+g*g,0));
+    const scale = norm > maxNorm ? maxNorm/norm : 1;
+    for (let i = 0; i < this.p.numVars; i++) {
+      const g = this.gradient[i] * scale;
+      this.velocity[i] = this.momentum * this.velocity[i] - this.lr * g;
+      this.vars[i] += this.velocity[i];
+    }
+    this.step++;
+    this._compute();
+  }
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+const audio = new Audio();
+let solver = null;
+let currentProblemIdx = 0;
+let running = false;
+let rafId = null;
+let animFrame = 0;
+
+const waveCanvas = document.getElementById('waveform');
+const waveCtx = waveCanvas.getContext('2d');
+const sparkCanvas = document.getElementById('sparkline');
+const sparkCtx = sparkCanvas.getContext('2d');
+
+function resizeCanvases() {
+  waveCanvas.width = waveCanvas.offsetWidth * devicePixelRatio;
+  waveCanvas.height = waveCanvas.offsetHeight * devicePixelRatio;
+  sparkCanvas.width = sparkCanvas.offsetWidth * devicePixelRatio;
+  sparkCanvas.height = sparkCanvas.offsetHeight * devicePixelRatio;
+}
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+
+function buildVoiceCards(problem) {
+  const container = document.getElementById('voices');
+  container.innerHTML = '';
+  problem.colors.forEach((col, i) => {
+    const card = document.createElement('div');
+    card.className = 'voice-card';
+    card.id = `vc-${i}`;
+    card.innerHTML = `
+      <div class="voice-name">Voice ${i+1}</div>
+      <div class="voice-freq" id="vf-${i}" style="color:${col}">—</div>
+      <div class="voice-amp-bar"><div class="voice-amp-fill" id="va-${i}" style="background:${col};width:0%"></div></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateVoiceCards(solver) {
+  solver.freqs.forEach((f, i) => {
+    const fEl = document.getElementById(`vf-${i}`);
+    const aEl = document.getElementById(`va-${i}`);
+    const card = document.getElementById(`vc-${i}`);
+    if (fEl) fEl.textContent = Math.round(f) + ' Hz';
+    if (aEl) aEl.style.width = (solver.amps[i] * 100).toFixed(1) + '%';
+    if (card) card.classList.toggle('converged', solver.converged);
+  });
+}
+
+function drawWaveform(analyser) {
+  const W = waveCanvas.width, H = waveCanvas.height;
+  waveCtx.clearRect(0, 0, W, H);
+
+  if (!analyser) {
+    // idle — draw flat line
+    waveCtx.strokeStyle = '#27272a';
+    waveCtx.lineWidth = 2;
+    waveCtx.beginPath();
+    waveCtx.moveTo(0, H/2); waveCtx.lineTo(W, H/2);
+    waveCtx.stroke();
+    return;
+  }
+
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+
+  const W2 = W / buf.length;
+
+  // Glow layer
+  waveCtx.save();
+  waveCtx.strokeStyle = 'rgba(139,92,246,0.25)';
+  waveCtx.lineWidth = 6 * devicePixelRatio;
+  waveCtx.shadowColor = '#8b5cf6';
+  waveCtx.shadowBlur = 18;
+  waveCtx.beginPath();
+  buf.forEach((v, i) => {
+    const x = i * W2, y = (0.5 + v * 0.42) * H;
+    i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
+  });
+  waveCtx.stroke();
+  waveCtx.restore();
+
+  // Main line — color shifts with error
+  const err = solver ? solver.error : 0;
+  const t = Math.min(1, err / 5);
+  const r = Math.round(139 + (248-139)*t);
+  const g = Math.round(92 + (113-92)*t);
+  const b = Math.round(246 + (113-246)*t);
+  waveCtx.strokeStyle = `rgb(${r},${g},${b})`;
+  waveCtx.lineWidth = 2 * devicePixelRatio;
+  waveCtx.beginPath();
+  buf.forEach((v, i) => {
+    const x = i * W2, y = (0.5 + v * 0.42) * H;
+    i === 0 ? waveCtx.moveTo(x, y) : waveCtx.lineTo(x, y);
+  });
+  waveCtx.stroke();
+}
+
+function drawSparkline(history) {
+  const W = sparkCanvas.width, H = sparkCanvas.height;
+  sparkCtx.clearRect(0, 0, W, H);
+  if (history.length < 2) return;
+
+  const max = Math.max(...history.slice(0, 1)) || 1;
+  const slice = history.slice(-80);
+  const step = W / (slice.length - 1);
+
+  // gradient fill
+  const grad = sparkCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(139,92,246,0.25)');
+  grad.addColorStop(1, 'rgba(139,92,246,0)');
+  sparkCtx.fillStyle = grad;
+  sparkCtx.beginPath();
+  slice.forEach((v, i) => {
+    const x = i * step;
+    const y = H - (Math.min(v, max) / max) * H * 0.85 - 4;
+    i === 0 ? sparkCtx.moveTo(x, H) || sparkCtx.lineTo(x, y) : sparkCtx.lineTo(x, y);
+  });
+  sparkCtx.lineTo((slice.length-1)*step, H);
+  sparkCtx.closePath(); sparkCtx.fill();
+
+  // line
+  sparkCtx.strokeStyle = '#8b5cf6';
+  sparkCtx.lineWidth = 1.5;
+  sparkCtx.beginPath();
+  slice.forEach((v, i) => {
+    const x = i * step, y = H - (Math.min(v, max) / max) * H * 0.85 - 4;
+    i === 0 ? sparkCtx.moveTo(x, y) : sparkCtx.lineTo(x, y);
+  });
+  sparkCtx.stroke();
+}
+
+function showCaption(text, duration = 2200) {
+  const el = document.getElementById('caption');
+  el.textContent = text; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function spawnParticles() {
+  const cx = window.innerWidth/2, cy = window.innerHeight/2;
+  const colors = ['#8b5cf6','#f472b6','#22d3ee','#4ade80','#facc15'];
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const angle = (i/28) * Math.PI*2;
+    const dist = 80 + Math.random()*180;
+    p.style.cssText = `
+      left:${cx}px; top:${cy}px;
+      background:${colors[i%colors.length]};
+      --tx:${Math.cos(angle)*dist}px;
+      --ty:${Math.sin(angle)*dist}px;
+    `;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1300);
+  }
+}
+
+function showConverged() {
+  const p = PROBLEMS[currentProblemIdx];
+  document.getElementById('conv-problem-name').textContent = p.eq;
+  document.getElementById('conv-steps').textContent = solver.step;
+  document.getElementById('conv-error').textContent = solver.error.toExponential(2);
+  document.getElementById('conv-vars').textContent =
+    solver.vars.map(v => v.toFixed(2)).join(', ');
+  document.getElementById('conv-overlay').classList.add('show');
+  spawnParticles();
+  audio.celebrate();
+
+  setTimeout(() => {
+    document.getElementById('conv-overlay').classList.remove('show');
+    // Auto-advance to next problem
+    const next = (currentProblemIdx + 1) % PROBLEMS.length;
+    setTimeout(() => loadProblem(next), 1000);
+  }, 3500);
+}
+
+async function loadProblem(idx) {
+  currentProblemIdx = idx;
+  const p = PROBLEMS[idx];
+
+  // Update UI
+  document.querySelectorAll('.scenario-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  const stageEl = document.getElementById('stage-label');
+  stageEl.textContent = p.name; stageEl.classList.add('active');
+
+  buildVoiceCards(p);
+  document.getElementById('status-val').textContent = 'solving…';
+  document.getElementById('status-val').style.color = 'var(--yellow)';
+  document.getElementById('progress-fill').style.width = '0%';
+
+  await audio.init(p.numVars, p.colors);
+  solver = new Solver(p);
+
+  showCaption(`🎵 ${p.name} — ${p.eq}`);
+  running = true;
+}
+
+function tick() {
+  if (!running || !solver) { rafId = requestAnimationFrame(tick); return; }
+
+  // Run several steps per frame for speed
+  const stepsPerFrame = currentProblemIdx === 2 ? 8 : 4;
+  for (let i = 0; i < stepsPerFrame; i++) {
+    if (!solver.converged) solver.advance();
+  }
+
+  // Update audio
+  audio.update(solver.freqs, solver.amps, solver.vibs, solver.noise);
+
+  // Update error bar
+  const errNorm = Math.min(1, solver.error / 20);
+  document.getElementById('error-bar-fill').style.width = (errNorm * 100) + '%';
+  document.getElementById('error-bar-fill').style.backgroundPosition =
+    (errNorm * 100) + '% 0';
+  const errEl = document.getElementById('error-val');
+  errEl.textContent = solver.error < 0.01
+    ? solver.error.toExponential(1)
+    : solver.error.toFixed(3);
+  errEl.style.color = errNorm < 0.1
+    ? 'var(--green)' : errNorm < 0.4 ? 'var(--yellow)' : 'var(--red)';
+
+  // Update step info
+  document.getElementById('step-count').textContent = solver.step;
+  document.getElementById('grad-val').textContent =
+    solver.gradMag < 0.001 ? solver.gradMag.toExponential(1) : solver.gradMag.toFixed(4);
+
+  // Progress bar (estimate based on log error)
+  const prog = Math.min(99, Math.max(0, 100 - (Math.log10(Math.max(solver.error,1e-5)+1) / Math.log10(21)) * 100));
+  document.getElementById('progress-fill').style.width = prog + '%';
+
+  // Voice cards
+  updateVoiceCards(solver);
+
+  // Draw
+  drawWaveform(audio.getAnalyser());
+  drawSparkline(solver.history);
+
+  animFrame++;
+
+  // Convergence
+  if (solver.converged && running) {
+    running = false;
+    document.getElementById('status-val').textContent = '✓ converged';
+    document.getElementById('status-val').style.color = 'var(--green)';
+    document.getElementById('progress-fill').style.width = '100%';
+    showConverged();
+  }
+
+  rafId = requestAnimationFrame(tick);
+}
+
+// ── SCENARIO BUTTONS ──────────────────────────────────────────────────────────
+document.querySelectorAll('.scenario-btn').forEach((btn, i) => {
+  btn.addEventListener('click', () => {
+    if (running) { running = false; }
+    setTimeout(() => loadProblem(i), 100);
+  });
+});
+
+// ── START ─────────────────────────────────────────────────────────────────────
+// Auto-start on first user interaction (needed for AudioContext)
+let started = false;
+async function start() {
+  if (started) return;
+  started = true;
+  await loadProblem(0);
+  tick();
+}
+
+// Click anywhere to start
+document.addEventListener('click', start, { once: true });
+document.addEventListener('keydown', start, { once: true });
+
+// Show idle state
+drawWaveform(null);
+document.getElementById('stage-label').textContent = 'Click anywhere to start';
+</script>
+</body>
+</html>
