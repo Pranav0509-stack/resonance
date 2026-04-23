@@ -7,6 +7,8 @@ export default defineConfig(({ command }) => ({
     rollupOptions: {
       input: {
         main: 'index.html',
+        scanner: 'scanner.html',
+        learn: 'learn.html',
       },
     },
   },
