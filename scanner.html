@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Scanner — Hear Your Code</title>
+  <script type="module" crossorigin src="/resonance/assets/scanner-CLhglY-Q.js"></script>
+  <link rel="modulepreload" crossorigin href="/resonance/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/resonance/assets/walk-Cys7z4FL.js">
+  <link rel="stylesheet" crossorigin href="/resonance/assets/scanner-DYyqfvR6.css">
+  <link rel="stylesheet" crossorigin href="/resonance/assets/style-DcWXUdkd.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- NAV -->
+    <nav class="nav">
+      <a href="index.html">Solver</a>
+      <span class="nav-sep">/</span>
+      <a href="scanner.html" class="nav-active">Scanner</a>
+      <span class="nav-sep">/</span>
+      <a href="learn.html">Style Learner</a>
+    </nav>
+
+    <!-- HEADER -->
+    <header class="concept">
+      <h1 class="title">Code Scanner</h1>
+      <p class="principle">Move through code. Hear the errors.</p>
+      <p class="sub">
+        Clean code = pure tone. Messy code = noise + vibrato.<br>
+        The cursor is your playhead. Close your eyes and listen.
+      </p>
+    </header>
+
+    <!-- CODE INPUT -->
+    <section class="input-section" id="input-section">
+      <textarea id="code-input" class="code-input" placeholder="Paste JavaScript here..." spellcheck="false"></textarea>
+      <button id="btn-scan" class="btn btn-primary btn-scan">SCAN</button>
+    </section>
+
+    <!-- CODE DISPLAY (hidden until scan) -->
+    <section class="code-section" id="code-section" style="display:none">
+      <div class="code-container">
+        <canvas id="heatmap" class="heatmap"></canvas>
+        <div class="code-view" id="code-view"></div>
+        <div class="line-detail" id="line-detail">
+          <div class="detail-title">LINE <span id="detail-line-num">1</span></div>
+          <div class="detail-row">
+            <span class="detail-label">DEPTH</span>
+            <span class="detail-value" id="detail-depth">0</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">WEIGHT</span>
+            <span class="detail-value" id="detail-weight">0</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">LENGTH</span>
+            <span class="detail-value" id="detail-length">0</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">SMELLS</span>
+            <span class="detail-value" id="detail-smells">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VISUALIZATION (hidden until scan) -->
+    <section class="viz-section" id="viz-section" style="display:none">
+      <!-- Waveform -->
+      <canvas id="waveform" class="waveform-canvas"></canvas>
+
+      <!-- State display -->
+      <div class="state-grid">
+        <div class="state-card">
+          <div class="state-label">LINE</div>
+          <div class="state-value" id="state-line">—</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">ERROR</div>
+          <div class="state-value" id="state-error">—</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">ISSUES</div>
+          <div class="state-value" id="state-issues">—</div>
+        </div>
+        <div class="state-card">
+          <div class="state-label">STATUS</div>
+          <div class="state-value" id="state-status">READY</div>
+        </div>
+      </div>
+
+      <!-- Current line sound bars -->
+      <div class="var-grid">
+        <div class="var-card" style="flex:1;min-width:100%">
+          <div class="var-header">
+            <span class="var-name">CURRENT LINE</span>
+            <span class="var-value" id="current-line-text">—</span>
+          </div>
+          <div class="var-bars">
+            <div class="var-bar-row">
+              <span class="var-bar-label">FREQ</span>
+              <div class="var-bar"><div class="var-fill" id="bar-freq" style="width:50%;background:var(--cyan)"></div></div>
+            </div>
+            <div class="var-bar-row">
+              <span class="var-bar-label">AMP</span>
+              <div class="var-bar"><div class="var-fill" id="bar-amp" style="width:0%;background:var(--green)"></div></div>
+            </div>
+            <div class="var-bar-row">
+              <span class="var-bar-label">VIB</span>
+              <div class="var-bar"><div class="var-fill" id="bar-vib" style="width:0%;background:var(--yellow)"></div></div>
+            </div>
+            <div class="var-bar-row">
+              <span class="var-bar-label">NOISE</span>
+              <div class="var-bar"><div class="var-fill" id="bar-noise" style="width:0%;background:var(--red)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error profile chart -->
+      <canvas id="error-profile" class="error-chart"></canvas>
+    </section>
+
+    <!-- CONTROLS (hidden until scan) -->
+    <section class="controls-section" id="controls-section" style="display:none">
+      <div class="transport">
+        <button id="btn-play" class="btn btn-primary">▶ PLAY</button>
+        <button id="btn-pause" class="btn">⏸ PAUSE</button>
+        <button id="btn-reset" class="btn">↻ RESET</button>
+        <button id="btn-back" class="btn">← NEW CODE</button>
+      </div>
+      <div class="sliders">
+        <label class="slider-row">
+          <span class="sl-label">Speed (lines/sec)</span>
+          <input type="range" id="speed-slider" min="1" max="20" step="1" value="4">
+          <span class="sl-val" id="speed-val">4</span>
+        </label>
+        <label class="slider-row">
+          <span class="sl-label">Volume</span>
+          <input type="range" id="vol-slider" min="0" max="1" step="0.01" value="0.5">
+        </label>
+      </div>
+    </section>
+
+    <!-- PARSE ERROR -->
+    <div class="parse-error" id="parse-error" style="display:none"></div>
+
+    <footer class="footer">
+      <span>Resonant Solver</span>
+      <span>·</span>
+      <span>Code Scanner</span>
+      <span>·</span>
+      <span>Hear the errors</span>
+    </footer>
+
+  </div>
+
+</body>
+</html>

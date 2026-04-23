@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Style Learner — Resonance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <script type="module" crossorigin src="/resonance/assets/learn-D6PdB-VW.js"></script>
+  <link rel="modulepreload" crossorigin href="/resonance/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/resonance/assets/walk-Cys7z4FL.js">
+  <link rel="stylesheet" crossorigin href="/resonance/assets/learn-c5Ujil6N.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <span class="nav-logo">⟐ Resonance</span>
+    <div class="nav-links">
+      <a href="index.html">Solver</a>
+      <a href="scanner.html">Scanner</a>
+      <a href="learn.html" class="active">Style Learner</a>
+    </div>
+  </nav>
+
+  <div class="layout">
+
+    <!-- LEFT: TRAIN -->
+    <section class="panel train-panel">
+      <div class="panel-header">
+        <h2>① Train</h2>
+        <p class="subtitle">Feed your codebase to build a style fingerprint</p>
+      </div>
+
+      <div class="profile-bar">
+        <select id="profileSelect">
+          <option value="">— new profile —</option>
+        </select>
+        <input type="text" id="profileName" placeholder="profile name…" />
+        <button id="saveProfileBtn" class="btn-small">Save</button>
+        <button id="deleteProfileBtn" class="btn-small btn-danger">Delete</button>
+      </div>
+
+      <textarea id="trainInput" placeholder="Paste your codebase here to build a style fingerprint…"></textarea>
+
+      <div class="train-actions">
+        <button id="trainBtn" class="btn-primary">Extract Fingerprint</button>
+        <button id="mergeBtn" class="btn-secondary">Merge into Profile</button>
+        <span id="trainStatus" class="status-text"></span>
+      </div>
+
+      <!-- FINGERPRINT RADAR -->
+      <div id="fingerprintSection" class="fingerprint-section hidden">
+        <h3>Style Fingerprint</h3>
+        <canvas id="radarCanvas" width="280" height="280"></canvas>
+        <div class="dimension-grid" id="dimensionGrid"></div>
+      </div>
+    </section>
+
+    <!-- CENTER: COMPARE -->
+    <section class="panel compare-panel">
+      <div class="panel-header">
+        <h2>② Compare</h2>
+        <p class="subtitle">Paste AI-generated or new code to measure style deviation</p>
+      </div>
+
+      <textarea id="compareInput" placeholder="Paste AI-generated or new code here to measure style deviation…"></textarea>
+
+      <div class="compare-actions">
+        <button id="compareBtn" class="btn-primary">Compare &amp; Sonify</button>
+        <button id="playBtn" class="btn-secondary" disabled>▶ Play Sound</button>
+        <button id="scanModeBtn" class="btn-secondary" disabled>SCAN MODE</button>
+        <button id="stopBtn" class="btn-small" disabled>■ Stop</button>
+      </div>
+
+      <!-- WAVEFORM -->
+      <canvas id="waveCanvas" width="500" height="80"></canvas>
+
+      <!-- OVERALL SCORE -->
+      <div id="scoreSection" class="score-section hidden">
+        <div class="score-ring">
+          <canvas id="scoreCanvas" width="120" height="120"></canvas>
+          <div class="score-label">
+            <span id="scoreValue">—</span>
+            <span class="score-sub">style match</span>
+          </div>
+        </div>
+
+        <!-- 8 DIMENSION BARS -->
+        <div class="dim-bars" id="dimBars"></div>
+      </div>
+
+      <!-- CORRECTION PANEL -->
+      <div id="correctionPanel" class="correction-panel hidden">
+        <h4>Tune the Fingerprint</h4>
+        <p class="correction-hint">Accept or reject dimension deviations to teach the engine your true standards</p>
+        <div id="correctionList" class="correction-list"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: ANNOTATED CODE -->
+    <section class="panel code-panel">
+      <div class="panel-header">
+        <h2>③ Annotate</h2>
+        <p class="subtitle">Line-by-line style deviation heat map</p>
+      </div>
+
+      <div class="code-toolbar">
+        <div class="legend">
+          <span class="dot green"></span> match
+          <span class="dot yellow"></span> minor
+          <span class="dot red"></span> deviation
+        </div>
+        <button id="autoFixBtn" class="btn-small hidden">⚡ Suggest Fixes</button>
+      </div>
+
+      <div id="codeView" class="code-view">
+        <div class="placeholder-code">
+          <span class="ghost">// annotated code appears here after comparison</span>
+        </div>
+      </div>
+
+      <!-- ISSUES LIST -->
+      <div id="issuesList" class="issues-list hidden">
+        <h4>Issues <span id="issueCount" class="badge">0</span></h4>
+        <div id="issuesContent"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- AUDIO ENGINE INDICATOR -->
+  <div class="audio-indicator" id="audioIndicator">
+    <div class="audio-label">8 VOICES</div>
+    <div class="voice-bars" id="voiceBars"></div>
+    <div class="audio-label" id="audioStatus">READY</div>
+  </div>
+
+</body>
+</html>

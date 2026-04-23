@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The World — Real-Time Market Intelligence Engine</title>
+  <script type="module" crossorigin src="/resonance/assets/main-CHGrK6T9.js"></script>
+  <link rel="modulepreload" crossorigin href="/resonance/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="stylesheet" crossorigin href="/resonance/assets/style-DcWXUdkd.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">THE <span class="accent">WORLD</span></h1>
+        <span class="tagline">Real-Time Market Intelligence Engine</span>
+      </div>
+      <div class="header-right">
+        <div class="regime-badge" id="regime-badge">
+          <span class="regime-dot"></span>
+          <span id="regime-label">Loading...</span>
+        </div>
+        <div class="last-update" id="last-update">--:--</div>
+      </div>
+    </header>
+
+    <!-- NAV TABS -->
+    <nav class="nav-tabs" id="nav-tabs">
+      <button class="tab active" data-tab="globe">Globe</button>
+      <button class="tab" data-tab="markets">Markets</button>
+      <button class="tab" data-tab="predict">Predict</button>
+      <button class="tab" data-tab="debate">AI Debate</button>
+      <button class="tab" data-tab="backtest">Backtest</button>
+      <button class="tab" data-tab="risk">Risk</button>
+      <button class="tab" data-tab="opportunities">Opportunities</button>
+    </nav>
+
+    <!-- ═══════════════ GLOBE VIEW ═══════════════ -->
+    <section class="view active" id="view-globe">
+      <div class="globe-container">
+        <canvas id="globe-canvas"></canvas>
+        <div class="globe-overlay">
+          <div class="globe-stats">
+            <div class="globe-stat">
+              <div class="stat-value" id="globe-symbols">--</div>
+              <div class="stat-label">Tracked Assets</div>
+            </div>
+            <div class="globe-stat">
+              <div class="stat-value" id="globe-predictions">--</div>
+              <div class="stat-label">Active Predictions</div>
+            </div>
+            <div class="globe-stat">
+              <div class="stat-value" id="globe-countries">--</div>
+              <div class="stat-label">Markets Covered</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick market cards -->
+      <div class="market-ticker" id="market-ticker"></div>
+    </section>
+
+    <!-- ═══════════════ MARKETS VIEW ═══════════════ -->
+    <section class="view" id="view-markets">
+      <div class="section-header">
+        <h2>Live Markets</h2>
+        <div class="controls-row">
+          <input type="text" id="symbol-search" placeholder="Add symbol (e.g. AAPL)" class="input-field">
+          <button class="btn btn-primary" id="btn-add-symbol">+ Track</button>
+          <button class="btn" id="btn-refresh-data">Refresh Data</button>
+        </div>
+      </div>
+      <div class="markets-grid" id="markets-grid"></div>
+    </section>
+
+    <!-- ═══════════════ PREDICT VIEW ═══════════════ -->
+    <section class="view" id="view-predict">
+      <div class="section-header">
+        <h2>Prediction Engine</h2>
+        <div class="controls-row">
+          <select id="predict-symbol" class="input-field"></select>
+          <select id="predict-horizon" class="input-field">
+            <option value="5">5 Day</option>
+            <option value="10">10 Day</option>
+            <option value="21">21 Day</option>
+          </select>
+          <button class="btn btn-primary" id="btn-predict">Run Prediction</button>
+        </div>
+      </div>
+
+      <div class="predict-layout">
+        <!-- Ensemble result -->
+        <div class="predict-main" id="predict-result">
+          <div class="empty-state">Select a symbol and run prediction</div>
+        </div>
+
+        <!-- Model breakdown -->
+        <div class="predict-sidebar">
+          <h3>Model Breakdown</h3>
+          <div id="model-breakdown" class="model-list">
+            <div class="empty-state">No predictions yet</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Features panel -->
+      <div class="features-panel" id="features-panel">
+        <h3>Feature Analysis</h3>
+        <div class="features-grid" id="features-grid"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ AI DEBATE VIEW ═══════════════ -->
+    <section class="view" id="view-debate">
+      <div class="section-header">
+        <h2>Multi-Agent Market Debate</h2>
+        <div class="controls-row">
+          <select id="debate-symbol" class="input-field"></select>
+          <button class="btn btn-primary" id="btn-debate">Start Debate</button>
+        </div>
+      </div>
+
+      <div class="debate-layout" id="debate-layout">
+        <div class="empty-state">Select a symbol to start a Bull vs Bear vs Neutral debate</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ BACKTEST VIEW ═══════════════ -->
+    <section class="view" id="view-backtest">
+      <div class="section-header">
+        <h2>Strategy Backtesting</h2>
+        <div class="controls-row">
+          <select id="bt-strategy" class="input-field">
+            <option value="momentum">Momentum</option>
+            <option value="mean_reversion">Mean Reversion</option>
+            <option value="rsi_macd">RSI + MACD</option>
+            <option value="ensemble">Ensemble</option>
+          </select>
+          <select id="bt-symbol" class="input-field"></select>
+          <input type="number" id="bt-capital" class="input-field" value="100000" placeholder="Capital">
+          <button class="btn btn-primary" id="btn-backtest">Run Backtest</button>
+        </div>
+      </div>
+
+      <div class="backtest-result" id="backtest-result">
+        <div class="empty-state">Configure a strategy and run a backtest</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ RISK VIEW ═══════════════ -->
+    <section class="view" id="view-risk">
+      <div class="section-header">
+        <h2>Risk Analytics</h2>
+      </div>
+      <div class="risk-layout" id="risk-layout">
+        <div class="empty-state">Risk metrics will appear after predictions are generated</div>
+      </div>
+    </section>
+
+    <!-- ═══════════════ OPPORTUNITIES VIEW ═══════════════ -->
+    <section class="view" id="view-opportunities">
+      <div class="section-header">
+        <h2>Global Opportunities</h2>
+        <p class="section-sub">Sector × Geography opportunity matrix — data-driven, transparent scoring</p>
+      </div>
+      <div class="opportunities-layout" id="opportunities-layout">
+        <div class="empty-state">Loading opportunity data...</div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <span>The World Engine</span>
+      <span class="dot">·</span>
+      <span>Ensemble ML + LLM Reasoning + Multi-Agent Debate</span>
+      <span class="dot">·</span>
+      <span>Real Data, Real Time</span>
+    </footer>
+
+  </div>
+
+</body>
+</html>
